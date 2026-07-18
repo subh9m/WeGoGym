@@ -71,33 +71,37 @@ export default function Auth() {
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-input-group">
             <label className="auth-input-label">Email Address</label>
-            <input 
-              type="email" 
-              className="nothing-input" 
-              placeholder="e.g. sbom@wegogym.com" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              required
-            />
+            <div className="premium-input-box">
+              <input 
+                type="email" 
+                className="premium-inner-input" 
+                placeholder="e.g. sbom@wegogym.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
           </div>
 
           <div className="auth-input-group">
             <label className="auth-input-label">Password</label>
-            <input 
-              type="password" 
-              className="nothing-input" 
-              placeholder="••••••••" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              required
-            />
+            <div className="premium-input-box">
+              <input 
+                type="password" 
+                className="premium-inner-input" 
+                placeholder="••••••••" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
           </div>
 
           <button 
             type="submit" 
-            className="btn-primary" 
+            className="btn-premium-primary glow-white" 
             style={{ width: "100%", marginTop: "10px" }}
             disabled={loading}
           >
@@ -126,7 +130,7 @@ export default function Auth() {
         <div className="divider-text">OR</div>
 
         <button 
-          className="btn-secondary" 
+          className="btn-premium-secondary glow-white" 
           style={{ width: "100%" }}
           onClick={handleAnonymousLogin}
           disabled={loading}

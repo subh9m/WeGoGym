@@ -44,30 +44,35 @@ export default function Onboarding() {
           {/* Name Input */}
           <div className="auth-input-group">
             <label className="auth-input-label">Your Name</label>
-            <input 
-              type="text" 
-              className="nothing-input" 
-              placeholder="e.g. Alex" 
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={loading}
-              required
-            />
+            <div className="premium-input-box">
+              <input 
+                type="text" 
+                className="premium-inner-input" 
+                placeholder="e.g. Alex" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
           </div>
 
           {/* Daily Protein Target */}
           <div className="auth-input-group">
             <label className="auth-input-label">Daily Protein Target (g)</label>
-            <input 
-              type="number" 
-              className="nothing-input" 
-              value={target}
-              onChange={(e) => setTarget(parseInt(e.target.value) || 0)}
-              disabled={loading}
-              min="10"
-              max="500"
-              required
-            />
+            <div className="premium-input-box">
+              <input 
+                type="number" 
+                className="premium-inner-input" 
+                value={target}
+                onChange={(e) => setTarget(parseInt(e.target.value) || 0)}
+                disabled={loading}
+                min="10"
+                max="500"
+                required
+              />
+              <span className="premium-input-unit">grams</span>
+            </div>
           </div>
 
           {/* Diet Preference Selection */}
@@ -76,9 +81,10 @@ export default function Onboarding() {
             <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
               <button
                 type="button"
-                className={`btn-secondary ${dietPref === "veg" ? "active" : ""}`}
+                className={`btn-premium-secondary ${dietPref === "veg" ? "active" : ""}`}
                 style={{
                   flex: 1,
+                  height: "48px",
                   background: dietPref === "veg" ? "var(--text-primary)" : "transparent",
                   color: dietPref === "veg" ? "var(--bg-primary)" : "var(--text-primary)",
                   fontWeight: dietPref === "veg" ? "700" : "400",
@@ -91,9 +97,10 @@ export default function Onboarding() {
               </button>
               <button
                 type="button"
-                className={`btn-secondary ${dietPref === "nonveg" ? "active" : ""}`}
+                className={`btn-premium-secondary ${dietPref === "nonveg" ? "active" : ""}`}
                 style={{
                   flex: 1,
+                  height: "48px",
                   background: dietPref === "nonveg" ? "var(--text-primary)" : "transparent",
                   color: dietPref === "nonveg" ? "var(--bg-primary)" : "var(--text-primary)",
                   fontWeight: dietPref === "nonveg" ? "700" : "400",
@@ -117,7 +124,7 @@ export default function Onboarding() {
 
           <button 
             type="submit" 
-            className="btn-primary" 
+            className="btn-premium-primary glow-white" 
             style={{ width: "100%", marginTop: "15px" }}
             disabled={loading}
           >
