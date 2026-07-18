@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Auth() {
-  const { loginWithEmail, signupWithEmail, loginAnonymously } = useAuth();
+  const { loginWithEmail, signupWithEmail, loginAnonymously, resetPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -17,6 +18,7 @@ export default function Auth() {
 
     try {
       setError("");
+      setSuccessMessage("");
       setLoading(true);
       if (isSignUp) {
         await signupWithEmail(email, password);
@@ -36,6 +38,24 @@ export default function Auth() {
       } else {
         setError("Auth operation failed. Please check your credentials.");
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!email.trim()) {
+      return setError("Please enter your email address first.");
+    }
+    try {
+      setError("");
+      setSuccessMessage("");
+      setLoading(true);
+      await resetPassword(email);
+      setSuccessMessage("Password reset email sent! Check your inbox.");
+    } catch (err) {
+      console.error(err);
+      setError("Failed to send password reset email. Check if the address is correct.");
     } finally {
       setLoading(false);
     }
@@ -67,6 +87,11 @@ export default function Auth() {
         </div>
 
         {error && <div className="auth-error-msg">{error}</div>}
+        {successMessage && (
+          <div style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid var(--accent-success)", color: "var(--accent-success)", padding: "12px", borderRadius: "10px", fontSize: "0.85rem", fontWeight: "600", textAlign: "center" }}>
+            {successMessage}
+          </div>
+        )}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-input-group">
@@ -126,6 +151,18 @@ export default function Auth() {
             </>
           )}
         </div>
+
+        {!isSignUp && (
+          <div style={{ textAlign: "center", marginTop: "10px" }}>
+            <span 
+              className="auth-toggle-link" 
+              style={{ fontSize: "0.8rem", color: "var(--text-muted)", textDecoration: "none" }} 
+              onClick={handleResetPassword}
+            >
+              Forgot Password?
+            </span>
+          </div>
+        )}
 
         <div className="divider-text">OR</div>
 
