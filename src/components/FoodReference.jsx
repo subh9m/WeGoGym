@@ -199,8 +199,18 @@ export default function FoodReference() {
       animate={{ opacity: 1, y: 0 }} 
       style={{ display: "flex", flexDirection: "column", gap: "24px" }}
     >
+      {/* Top Page Title */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h2 style={{ fontSize: "1.6rem", fontWeight: "800", letterSpacing: "-0.5px" }}>Food Library</h2>
+          <span className="nothing-label" style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "none" }}>
+            Nutritional database & protein reference values
+          </span>
+        </div>
+      </div>
+
       {/* Horizontally scrollable category filters chips */}
-      <div className="category-filter-bar">
+      <div className="category-filter-bar" style={{ margin: "4px 0 12px 0" }}>
         {FILTER_CHIPS.map((chip) => {
           const ChipIcon = chip.icon;
           const isActive = activeCategory === chip.id;
@@ -218,7 +228,7 @@ export default function FoodReference() {
       </div>
 
       {/* Action Search Toolbar */}
-      <div className="search-toolbar-row">
+      <div className="search-toolbar-row" style={{ margin: "8px 0" }}>
         <div className="premium-input-box" style={{ flex: 1, height: "52px" }}>
           <Search size={20} color="var(--text-secondary)" style={{ marginRight: "10px" }} />
           <input
@@ -258,27 +268,28 @@ export default function FoodReference() {
                   transition={{ duration: 0.2 }}
                   className={`food-library-card ${meta.glowClass}`}
                 >
-                  {/* Protein value top-right */}
-                  <div style={{ position: "absolute", top: "24px", right: "24px", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                    <span style={{ fontSize: "1.4rem", fontWeight: "900", fontFamily: "var(--font-mono)", color: "var(--text-primary)", lineHeight: 1 }}>
-                      {food.protein}g
-                    </span>
-                    <span style={{ fontSize: "0.55rem", color: "var(--text-muted)", textTransform: "uppercase", marginTop: "2px", fontWeight: "700" }}>
-                      Protein
-                    </span>
-                  </div>
-
-                  {/* Icon & title rows */}
-                  <div className="food-card-top-row">
-                    <div className="exercise-icon-box" style={{ width: "42px", height: "42px", flexShrink: 0, borderRadius: "12px", background: "var(--bg-secondary)" }}>
-                      {meta.icon}
+                  {/* Icon, title & protein header row */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", minWidth: 0, flex: 1 }}>
+                      <div className="exercise-icon-box" style={{ width: "42px", height: "42px", flexShrink: 0, borderRadius: "12px", background: "var(--bg-secondary)" }}>
+                        {meta.icon}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+                        <span style={{ fontSize: "1rem", fontWeight: "800", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {food.name}
+                        </span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "500" }}>
+                          {food.serving}
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                      <span style={{ fontSize: "1rem", fontWeight: "800", color: "var(--text-primary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {food.name}
+
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                      <span style={{ fontSize: "1.3rem", fontWeight: "900", fontFamily: "var(--font-mono)", color: "var(--text-primary)", lineHeight: 1 }}>
+                        {food.protein}g
                       </span>
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "500" }}>
-                        {food.serving}
+                      <span style={{ fontSize: "0.55rem", color: "var(--text-muted)", textTransform: "uppercase", marginTop: "2px", fontWeight: "700" }}>
+                        Protein
                       </span>
                     </div>
                   </div>

@@ -76,7 +76,7 @@ export default function History() {
       style={{ display: "flex", flexDirection: "column", gap: "24px" }}
     >
       {/* Top row stats summary (Streaks & counts) */}
-      <div className="dashboard-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <div className="dashboard-grid">
         <div className="metric-card glow-orange" style={{ borderColor: "rgba(249, 115, 22, 0.2)" }}>
           <div className="metric-card-header">
             <span>Current Streak</span>

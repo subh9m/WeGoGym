@@ -900,11 +900,14 @@ body {
   border-radius: 16px;
   padding: 24px;
   width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .heatmap-wrapper {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   display: flex;
   flex-direction: column;
