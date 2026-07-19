@@ -27,16 +27,20 @@ export default function Auth() {
       }
     } catch (err) {
       console.error(err);
-      if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
+      if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
         setError("Invalid email or password.");
       } else if (err.code === "auth/email-already-in-use") {
-        setError("Email already in use.");
+        setError("Email already in use. Try logging in instead.");
       } else if (err.code === "auth/weak-password") {
         setError("Password should be at least 6 characters.");
       } else if (err.code === "auth/operation-not-allowed") {
-        setError("Email/Password sign-in is disabled. Enable it in your Firebase Console (Authentication -> Sign-in Method).");
+        setError("Sign-in method is disabled in Firebase Console. Enable Email/Password in Authentication -> Sign-in Method.");
+      } else if (err.code === "auth/invalid-api-key" || err.code === "auth/api-key-not-valid") {
+        setError("Invalid Firebase API Key. Please check your .env file and restart dev server.");
+      } else if (err.code === "auth/unauthorized-domain") {
+        setError("Unauthorized domain. Add this domain to Firebase Console -> Authentication -> Settings -> Authorized Domains.");
       } else {
-        setError("Auth operation failed. Please check your credentials.");
+        setError(err.message ? `${err.message} (${err.code})` : "Auth operation failed. Please check your credentials.");
       }
     } finally {
       setLoading(false);
