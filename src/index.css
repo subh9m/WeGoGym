@@ -1014,6 +1014,71 @@ body.light .heatmap-tooltip {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
+/* Premium Modal Overlay & Dialog Window */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeInModal 0.2s ease-out;
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: scaleUpModal 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes scaleUpModal {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+body.light .modal-content {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+/* Elevated Dropdowns & Popovers */
+.profile-dropdown-menu {
+  position: absolute;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: dropdownSlideIn 0.15s ease-out;
+}
+
+@keyframes dropdownSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+body.light .profile-dropdown-menu {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
 /* Sliding details drawer */
 .drawer-overlay {
   position: fixed;
@@ -1353,7 +1418,72 @@ body.light .food-library-card:hover {
   }
   
   .app-container {
+    padding: 16px 12px;
+  }
+
+  .diet-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .search-toolbar-row .btn-premium-primary {
+    width: 100%;
+  }
+
+  .category-filter-bar {
+    margin-bottom: 16px;
+  }
+
+  .category-filter-pill {
+    height: 40px;
+    padding: 0 14px;
+    font-size: 0.8rem;
+  }
+
+  .kbd-hint {
+    display: none !important;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .metric-card {
+    padding: 14px;
+  }
+
+  .heatmap-container {
+    padding: 16px 12px;
+  }
+
+  .right-drawer-panel {
+    width: 100%;
+  }
+
+  .premium-header {
+    padding: 0 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .food-grid-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .segmented-pill-btn {
+    padding: 8px 10px;
+    font-size: 0.7rem;
+  }
+
+  .modal-content {
     padding: 20px 16px;
+    border-radius: 16px;
   }
 }
 

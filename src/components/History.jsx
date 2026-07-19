@@ -124,7 +124,7 @@ export default function History() {
 
       {/* Heatmap Contribution Section */}
       <div className="heatmap-container glow-history">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "16px" }}>
           <div>
             <h3 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
               Workout History Calendar
