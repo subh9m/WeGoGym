@@ -781,7 +781,8 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  right: 0;
+  width: 100%;
   height: 100vh;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
@@ -1022,7 +1023,8 @@ body.light .heatmap-tooltip {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  right: 0;
+  width: 100%;
   height: 100vh;
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
@@ -1087,7 +1089,8 @@ body.light .profile-dropdown-menu {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  right: 0;
+  width: 100%;
   height: 100vh;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
@@ -1387,9 +1390,26 @@ body.light .food-library-card:hover {
 }
 
 /* Media Breakpoints layout */
-@media (min-width: 900px) {
+@media (min-width: 901px) {
   .mobile-logo-only {
     display: none !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .app-container {
+    max-width: 100%;
+    padding: 24px 20px;
+  }
+
+  .food-grid-layout {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .workout-split-layout {
+    grid-template-columns: 240px 1fr;
+    gap: 16px;
   }
 }
 
@@ -1416,16 +1436,25 @@ body.light .food-library-card:hover {
 }
 
 @media (max-width: 768px) {
-  .exercise-responsive-grid {
-    grid-template-columns: 1fr;
-  }
-  
   .app-container {
     padding: 16px 12px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .exercise-responsive-grid {
+    grid-template-columns: 1fr;
   }
 
   .diet-grid {
     grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .food-grid-layout {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
   }
 
   .search-toolbar-row {
@@ -1439,7 +1468,8 @@ body.light .food-library-card:hover {
   }
 
   .category-filter-bar {
-    margin-bottom: 16px;
+    margin-bottom: 14px;
+    padding: 4px 2px;
   }
 
   .category-filter-pill {
@@ -1465,28 +1495,174 @@ body.light .food-library-card:hover {
     padding: 16px 12px;
   }
 
+  .heatmap-scroll-area {
+    min-width: 660px;
+  }
+
+  .heatmap-months-row-grid {
+    grid-template-columns: 35px repeat(53, 10px);
+    gap: 3px;
+  }
+
+  .heatmap-grid-core {
+    grid-template-rows: repeat(7, 10px);
+    grid-template-columns: repeat(53, 10px);
+    gap: 3px;
+  }
+
+  .heatmap-cell {
+    width: 10px;
+    height: 10px;
+  }
+
+  .heatmap-weekdays-column {
+    height: 88px;
+  }
+
   .right-drawer-panel {
     width: 100%;
+    border-left: none;
   }
 
   .premium-header {
     padding: 0 14px;
+    height: 60px;
+  }
+
+  .header-page-title-text {
+    font-size: 0.95rem;
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .food-grid-layout {
     grid-template-columns: 1fr;
   }
 
+  .segmented-pills-container {
+    border-radius: 20px;
+    padding: 3px;
+    gap: 2px;
+  }
+
   .segmented-pill-btn {
-    padding: 8px 10px;
-    font-size: 0.7rem;
+    padding: 8px 12px;
+    font-size: 0.75rem;
   }
 
   .modal-content {
     padding: 20px 16px;
     border-radius: 16px;
+    max-width: 100%;
+  }
+
+  .food-library-card {
+    padding: 18px;
+    min-height: auto;
+  }
+
+  .meal-card-premium {
+    padding: 16px;
+  }
+
+  .auth-card {
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .metric-card {
+    padding: 12px;
+    min-height: 84px;
+  }
+
+  .metric-value {
+    font-size: 1.3rem;
+  }
+
+  .metric-value-dot {
+    font-size: 1.4rem;
+  }
+
+  .timeline-card {
+    padding: 14px;
+  }
+
+  .timeline-meta-row {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    font-size: 0.75rem;
+  }
+
+  .spotlight-overlay {
+    padding-top: 50px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .spotlight-content {
+    width: 100%;
+    border-radius: 12px;
+  }
+
+  .spotlight-input-wrapper {
+    padding: 12px 16px;
+  }
+
+  .modal-content {
+    padding: 16px 12px;
+  }
+}
+
+@media (max-width: 375px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .segmented-pill-btn {
+    padding: 6px 8px;
+    font-size: 0.65rem;
+  }
+
+  .category-filter-pill {
+    height: 36px;
+    padding: 0 10px;
+    font-size: 0.75rem;
+  }
+
+  .food-item-chip {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    gap: 4px;
+  }
+
+  .header-right-sec {
+    gap: 6px;
+  }
+
+  .header-action-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .avatar-circle {
+    width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
+  }
+
+  .premium-header {
+    padding: 0 10px;
+  }
+
+  .app-container {
+    padding: 12px 8px;
   }
 }
 

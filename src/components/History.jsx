@@ -270,7 +270,7 @@ export default function History() {
                 {/* Exercises list table */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
                   <span className="nothing-label" style={{ fontSize: "0.65rem" }}>Lifting Log Entries</span>
-                  <div style={{ border: "1px solid var(--border-color)", borderRadius: "12px", overflow: "hidden" }}>
+                  <div style={{ border: "1px solid var(--border-color)", borderRadius: "12px", overflowX: "auto", width: "100%", WebkitOverflowScrolling: "touch" }}>
                     <table className="reference-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                       <thead>
                         <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-color)" }}>
