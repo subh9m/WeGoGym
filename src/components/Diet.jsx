@@ -8,7 +8,8 @@ import {
   FlameKindling, 
   Plus, 
   Search,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -234,47 +235,79 @@ function MealPremiumCard({ dayKey, mealKey, mealLabel, icon: IconComponent, glow
         </div>
       </div>
 
-      <div style={{ position: "relative" }} ref={dropdownRef}>
+      <div>
         <button 
           className="btn-premium-secondary" 
           style={{ width: "100%", height: "40px", borderRadius: "10px", fontSize: "0.8rem", gap: "6px" }}
-          onClick={() => setSearchOpen(!searchOpen)}
+          onClick={() => setSearchOpen(true)}
         >
           <Plus size={14} /> Add Food
         </button>
 
         {searchOpen && (
-          <div className="profile-dropdown-menu" style={{ width: "100%", top: "calc(100% + 6px)", maxHeight: "200px", overflowY: "auto", padding: "8px" }}>
-            <div className="premium-input-box" style={{ height: "32px", marginBottom: "8px", padding: "0 8px", borderRadius: "8px" }}>
-              <Search size={12} color="var(--text-muted)" style={{ marginRight: "6px" }} />
-              <input
-                type="text"
-                className="premium-inner-input"
-                style={{ fontSize: "0.75rem" }}
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              {filteredFoods.length > 0 ? (
-                filteredFoods.map((food) => (
-                  <button
-                    key={food.id}
-                    className="profile-dropdown-item"
-                    style={{ padding: "6px 8px", fontSize: "0.75rem" }}
-                    onClick={() => handleSelectFood(food)}
-                  >
-                    <span>{food.name}</span>
-                    <span className="nothing-label" style={{ fontSize: "0.6rem" }}>{food.protein}g</span>
-                  </button>
-                ))
-              ) : (
-                <div style={{ textAlign: "center", padding: "10px", color: "var(--text-muted)", fontSize: "0.7rem", fontFamily: "var(--font-mono)" }}>
-                  No matches
-                </div>
-              )}
+          <div className="modal-overlay" onClick={() => setSearchOpen(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "420px", borderRadius: "20px", padding: "24px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <span className="nothing-title" style={{ fontSize: "1.1rem", fontWeight: "700" }}>Add Food to {mealLabel}</span>
+                <button className="header-action-btn" onClick={() => setSearchOpen(false)} style={{ width: "32px", height: "32px" }}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="premium-input-box" style={{ height: "46px", marginBottom: "16px", padding: "0 12px", borderRadius: "12px" }}>
+                <Search size={16} color="var(--text-muted)" style={{ marginRight: "8px" }} />
+                <input
+                  type="text"
+                  className="premium-inner-input"
+                  style={{ fontSize: "0.85rem" }}
+                  placeholder={`Search foods...`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "280px", overflowY: "auto", paddingRight: "4px" }}>
+                {filteredFoods.length > 0 ? (
+                  filteredFoods.map((food) => (
+                    <button
+                      key={food.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "12px 14px",
+                        borderRadius: "12px",
+                        border: "1px solid var(--border-color)",
+                        background: "var(--bg-secondary)",
+                        color: "var(--text-primary)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "all 0.15s ease"
+                      }}
+                      onClick={() => handleSelectFood(food)}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <span style={{ fontWeight: "700", fontSize: "0.9rem" }}>{food.name}</span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{food.serving}</span>
+                      </div>
+                      <span className="nothing-label" style={{ fontSize: "0.8rem", color: accentColor, fontWeight: "700" }}>
+                        +{food.protein}g protein
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div style={{ textAlign: "center", padding: "24px", color: "var(--text-muted)", fontSize: "0.85rem", fontFamily: "var(--font-mono)" }}>
+                    No foods found matching "{searchQuery}"
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end" }}>
+                <button className="btn-premium-secondary" style={{ padding: "8px 16px", fontSize: "0.8rem" }} onClick={() => setSearchOpen(false)}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}

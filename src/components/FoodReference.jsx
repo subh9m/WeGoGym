@@ -218,7 +218,7 @@ export default function FoodReference() {
       </div>
 
       {/* Action Search Toolbar */}
-      <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+      <div className="search-toolbar-row">
         <div className="premium-input-box" style={{ flex: 1, height: "52px" }}>
           <Search size={20} color="var(--text-secondary)" style={{ marginRight: "10px" }} />
           <input
