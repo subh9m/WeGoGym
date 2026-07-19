@@ -6,12 +6,16 @@ import {
   Dumbbell, 
   Clock, 
   Flame, 
-  Moon, 
   Play, 
   Pause, 
   RotateCcw, 
-  NotebookText, 
-  UtensilsCrossed
+  Plus, 
+  Check, 
+  Trophy, 
+  Timer, 
+  Sparkles,
+  Zap,
+  Trash2
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -33,9 +37,7 @@ export default function Workout() {
     startSession, 
     pauseSession, 
     resumeSession, 
-    cancelSession, 
     finishSession,
-    history,
     prs,
     profile,
     restSeconds,
@@ -44,53 +46,41 @@ export default function Workout() {
     startRest,
     pauseRest,
     resumeRest,
-    resetRest,
-    diets
+    resetRest
   } = usePlanner();
 
   const [selectedDay, setSelectedDay] = useState("day1");
-  const [liveTime, setLiveTime] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  // Live clock hook
-  useEffect(() => {
-    const updateTime = () => {
-      const d = new Date();
-      let hrs = d.getHours();
-      const mins = String(d.getMinutes()).padStart(2, '0');
-      const ampm = hrs >= 12 ? 'PM' : 'AM';
-      hrs = hrs % 12 || 12;
-      setLiveTime(`${hrs}:${mins} ${ampm}`);
-    };
-    updateTime();
-    const id = setInterval(updateTime, 1000);
-    return () => clearInterval(id);
-  }, []);
+  // Form states for adding custom exercise
+  const [newExName, setNewExName] = useState("");
+  const [newExMuscle, setNewExMuscle] = useState("push");
+  const [newExWeight, setNewExWeight] = useState(40);
+  const [newExSets, setNewExSets] = useState(3);
+  const [newExReps, setNewExReps] = useState(10);
 
-  // Sync horizontal selector triggers
+  // Sync today's day on load
   useEffect(() => {
     const today = new Date().getDay();
     const dayKey = today === 0 ? "day7" : `day${today}`;
     setSelectedDay(dayKey);
   }, []);
 
-  // Listen to command palette day redirects
+  // Listen to command palette / arrow navigation
   useEffect(() => {
-    const handleChangeDayTab = (e) => {
-      if (e.detail?.dayKey) {
-        setSelectedDay(e.detail.dayKey);
+    const handleNavigate = (e) => {
+      if (e.detail?.direction) {
+        const idx = DAYS_CONFIG.findIndex(d => d.key === selectedDay);
+        if (e.detail.direction === "next" && idx < DAYS_CONFIG.length - 1) {
+          setSelectedDay(DAYS_CONFIG[idx + 1].key);
+        } else if (e.detail.direction === "prev" && idx > 0) {
+          setSelectedDay(DAYS_CONFIG[idx - 1].key);
+        }
       }
     };
-    window.addEventListener("changeDayTab", handleChangeDayTab);
-    return () => window.removeEventListener("changeDayTab", handleChangeDayTab);
-  }, []);
-
-  // Router state syncs
-  useEffect(() => {
-    if (location.state && location.state.selectDayKey) {
-      setSelectedDay(location.state.selectDayKey);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location]);
+    window.addEventListener("navigateDayTab", handleNavigate);
+    return () => window.removeEventListener("navigateDayTab", handleNavigate);
+  }, [selectedDay]);
 
   const activeWorkout = workouts[selectedDay] || { type: "Rest", exercises: [] };
   const totalExercises = activeWorkout.exercises ? activeWorkout.exercises.length : 0;
@@ -101,517 +91,414 @@ export default function Workout() {
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
-    
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m ${secs}s`;
-    }
-    if (mins > 0) {
-      return `${mins}m ${secs}s`;
-    }
+    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+    if (mins > 0) return `${mins}m ${secs}s`;
     return `${secs}s`;
   };
 
-  const getWorkoutColorName = (workoutType) => {
-    const type = workoutType.toLowerCase();
-    if (type.includes("push")) return "red";
-    if (type.includes("pull")) return "blue";
-    if (type.includes("leg")) return "green";
-    if (type.includes("abs")) return "orange";
-    return "white";
+  const handleToggleExercise = (index) => {
+    const ex = activeWorkout.exercises[index];
+    const isNowCompleted = !ex.completed;
+
+    updateExercise(selectedDay, index, { completed: isNowCompleted });
+
+    // If starting or completing an exercise, trigger rest timer
+    if (isNowCompleted && !restActive) {
+      startRest(90);
+    }
+
+    // Auto start active timer if not active
+    if (!activeTimer && isNowCompleted) {
+      startSession(selectedDay);
+    }
   };
 
-  const getWorkoutColor = (workoutType) => {
-    const type = workoutType.toLowerCase();
-    if (type.includes("push")) return "var(--accent-push)";
-    if (type.includes("pull")) return "var(--accent-blue)";
-    if (type.includes("leg")) return "var(--accent-legs)";
-    if (type.includes("abs")) return "var(--accent-orange)";
-    return "var(--text-primary)";
-  };
+  const handleAddCustomExercise = (e) => {
+    e.preventDefault();
+    if (!newExName.trim()) return;
 
-  const getProteinToday = () => {
-    const today = new Date().getDay();
-    const dayKey = today === 0 ? "day7" : `day${today}`;
-    const dayDiet = diets[dayKey];
-    if (!dayDiet) return 0;
-    
-    let total = 0;
-    Object.keys(dayDiet.meals || {}).forEach((mealKey) => {
-      dayDiet.meals[mealKey].forEach((item) => {
-        total += (item.proteinPerServing || 0) * (item.quantity || 1);
-      });
-    });
-    return total;
-  };
+    const newEx = {
+      id: `custom_${Date.now()}`,
+      name: newExName,
+      muscle: newExMuscle,
+      weight: Number(newExWeight),
+      sets: Number(newExSets),
+      reps: Number(newExReps),
+      completed: false,
+      notes: "Custom target"
+    };
 
-  const proteinToday = getProteinToday();
-  const proteinTarget = profile?.proteinTarget || 100;
-  const isProteinAchieved = proteinToday >= proteinTarget;
+    const updatedExercises = [...(activeWorkout.exercises || []), newEx];
+    updateExercise(selectedDay, null, null, updatedExercises);
+
+    setNewExName("");
+    setShowAddModal(false);
+  };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 15 }} 
+      initial={{ opacity: 0, y: 12 }} 
       animate={{ opacity: 1, y: 0 }} 
-      className="workout-split-layout"
+      transition={{ duration: 0.25 }}
+      style={{ display: "flex", flexDirection: "column", gap: "24px" }}
     >
-      {/* Left Sidebar Pane: Metric widgets, completed ring, circular rest controls */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        
-        {/* Top metrics grids */}
-        <div className="dashboard-grid">
-          {/* Flame streak */}
-          <div className="metric-card glow-orange" style={{ borderColor: "rgba(249, 115, 22, 0.15)" }}>
-            <div className="metric-card-header">
-              <span>Streak</span>
-              <Flame size={16} color="var(--accent-abs)" />
+      {/* 1. Day Split Pills Selector */}
+      <div className="segmented-pills-container">
+        {DAYS_CONFIG.map((d) => {
+          const isActive = selectedDay === d.key;
+          const dayWorkout = workouts[d.key];
+          const typeLabel = dayWorkout?.type || (d.key === "day7" ? "Rest" : "Split");
+          
+          return (
+            <button
+              key={d.key}
+              className={`segmented-pill-btn ${isActive ? "active" : ""}`}
+              onClick={() => setSelectedDay(d.key)}
+            >
+              {isActive && <motion.div layoutId="pillActiveBg" className="segmented-pill-active-bg" />}
+              <span style={{ position: "relative", zIndex: 2 }}>{d.label}: {typeLabel}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 2. Main Routine Header & Active Timer Control */}
+      <div className="nothing-card" style={{ background: "linear-gradient(135deg, var(--bg-card), var(--bg-secondary))" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span className="nothing-label" style={{ color: "var(--accent-pull)" }}>
+                Routine Schedule
+              </span>
+              <span style={{ background: "rgba(16, 185, 129, 0.12)", color: "var(--accent-success)", padding: "2px 8px", borderRadius: "10px", fontSize: "0.7rem", fontWeight: "700" }}>
+                🔥 {profile?.streak?.current || 0} Day Streak
+              </span>
             </div>
-            <div className="metric-value">
-              <span className="metric-value-dot">{profile?.streak?.current || 0}</span>
-              <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>days</span>
-            </div>
+            <h1 style={{ fontSize: "1.8rem", fontWeight: "900", marginTop: "4px" }}>
+              {activeWorkout.type} Routine
+            </h1>
           </div>
 
-          {/* Active session clock timer */}
-          <div className={`metric-card ${activeTimer ? "glow-red" : "glow-white"}`} style={{ borderColor: activeTimer ? "rgba(239, 68, 68, 0.25)" : "var(--border-color)" }}>
-            <div className="metric-card-header">
-              <span>Duration</span>
-              <Clock size={16} color={activeTimer ? "var(--accent-push)" : "var(--text-secondary)"} />
-            </div>
+          {/* Active Workout Timer Banner */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {activeTimer && activeTimer.dayKey === selectedDay ? (
-              <div className="metric-value" style={{ color: "var(--accent-push)" }}>
-                <span className="metric-value-dot">{formatElapsed(activeTimer.elapsedSeconds)}</span>
-              </div>
-            ) : (
-              <div className="metric-value" style={{ color: "var(--text-muted)", fontSize: "1rem" }}>
-                Idle
-              </div>
-            )}
-          </div>
-
-          {/* Protein target logs */}
-          <div className={`metric-card ${isProteinAchieved ? "glow-green" : "glow-purple"}`} style={{ borderColor: isProteinAchieved ? "rgba(34, 197, 94, 0.3)" : "var(--border-color)" }}>
-            <div className="metric-card-header">
-              <span>Protein</span>
-              <UtensilsCrossed size={16} color={isProteinAchieved ? "var(--accent-legs)" : "var(--accent-protein)"} />
-            </div>
-            <div className="metric-value">
-              <span className="metric-value-dot">{proteinToday}</span>
-              <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}> / {proteinTarget}g</span>
-            </div>
-          </div>
-
-          {/* Clock tracker widget */}
-          <div className="metric-card glow-white">
-            <div className="metric-card-header">
-              <span>Clock</span>
-              <Clock size={16} color="var(--text-muted)" />
-            </div>
-            <div className="metric-value">
-              <span className="metric-value-dot">{liveTime}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Circular SVG completed progress ring widget */}
-        {totalExercises > 0 && (
-          <div className={`progress-ring-card glow-${getWorkoutColorName(activeWorkout.type)}`}>
-            <div className="circular-ring-container">
-              <svg width="120" height="120" style={{ transform: "rotate(-90deg)" }}>
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  stroke="var(--border-color)"
-                  strokeWidth="8"
-                  fill="transparent"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  stroke={getWorkoutColor(activeWorkout.type)}
-                  strokeWidth="8"
-                  fill="transparent"
-                  strokeDasharray="314.16"
-                  strokeDashoffset={314.16 - (progressPct / 100) * 314.16}
-                  strokeLinecap="round"
-                  style={{ transition: "stroke-dashoffset 0.35s ease-in-out" }}
-                />
-              </svg>
-              <div className="ring-percent-text">{progressPct}%</div>
-            </div>
-            <div className="ring-sub-text">
-              {completedExercises} of {totalExercises} exercises completed
-            </div>
-            {activeTimer && activeTimer.dayKey === selectedDay && (
-              <div style={{ display: "flex", gap: "10px", marginTop: "16px", width: "100%" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(239, 68, 68, 0.1)", border: "1px solid var(--accent-push)", padding: "8px 16px", borderRadius: "16px" }}>
+                <Clock size={18} color="var(--accent-push)" />
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: "800", color: "var(--accent-push)", fontSize: "1.1rem" }}>
+                  {formatElapsed(activeTimer.elapsedSeconds)}
+                </span>
                 {activeTimer.isPaused ? (
-                  <button className="btn-premium-secondary" style={{ flex: 1, height: "40px" }} onClick={resumeSession}>
-                    Resume
+                  <button className="header-action-btn" onClick={resumeSession} title="Resume timer" style={{ width: "32px", height: "32px" }}>
+                    <Play size={14} />
                   </button>
                 ) : (
-                  <button className="btn-premium-secondary" style={{ flex: 1, height: "40px" }} onClick={pauseSession}>
-                    Pause
+                  <button className="header-action-btn" onClick={pauseSession} title="Pause timer" style={{ width: "32px", height: "32px" }}>
+                    <Pause size={14} />
                   </button>
                 )}
-                <button className="btn-premium-primary" style={{ flex: 1, height: "40px", background: "var(--accent-push)", color: "#fff" }} onClick={finishSession}>
+                <button className="btn-premium-primary" style={{ minHeight: "36px", padding: "0 14px", fontSize: "0.8rem" }} onClick={finishSession}>
                   Finish
                 </button>
               </div>
+            ) : (
+              <button 
+                className="btn-premium-primary" 
+                onClick={() => startSession(selectedDay)}
+                disabled={totalExercises === 0}
+              >
+                <Play size={18} /> Start Session
+              </button>
             )}
           </div>
-        )}
+        </div>
 
-        {/* Circular Rest Widget */}
-        <div className="premium-rest-card glow-timer">
-          <div className="rest-quick-pills">
-            <button className="rest-pill-btn" onClick={() => startRest(60)}>60s</button>
-            <button className="rest-pill-btn" onClick={() => startRest(90)}>90s</button>
-            <button className="rest-pill-btn" onClick={() => startRest(120)}>120s</button>
-          </div>
-
-          <div className="rest-circle-wrapper">
-            <svg width="100" height="100" style={{ transform: "rotate(-90deg)" }}>
-              <circle
-                cx="50"
-                cy="50"
-                r="44"
-                stroke="var(--border-color)"
-                strokeWidth="6"
-                fill="transparent"
+        {/* Workout Completion Progress Ring / Bar */}
+        {totalExercises > 0 && (
+          <div style={{ marginTop: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "6px", fontWeight: "600" }}>
+              <span>{completedExercises} of {totalExercises} Exercises Completed</span>
+              <span>{progressPct}%</span>
+            </div>
+            <div style={{ width: "100%", height: "8px", background: "var(--bg-secondary)", borderRadius: "4px", overflow: "hidden" }}>
+              <div 
+                style={{ 
+                  width: `${progressPct}%`, 
+                  height: "100%", 
+                  background: progressPct === 100 ? "var(--accent-success)" : "linear-gradient(90deg, var(--accent-pull), var(--accent-protein))",
+                  transition: "width 0.4s ease-out" 
+                }} 
               />
-              <circle
-                cx="50"
-                cy="50"
-                r="44"
-                stroke="var(--accent-timer)"
-                strokeWidth="6"
-                fill="transparent"
-                strokeDasharray="276.46"
-                strokeDashoffset={restActive ? 276.46 - (restSeconds / restInitial) * 276.46 : 276.46}
-                strokeLinecap="round"
-                style={{ transition: "stroke-dashoffset 1s linear" }}
-              />
-            </svg>
-            <div className="rest-time-text">
-              {Math.floor(restSeconds / 60)}:{(restSeconds % 60).toString().padStart(2, "0")}
             </div>
           </div>
+        )}
+      </div>
 
-          <div className="rest-controls-row">
-            {restActive ? (
-              <button className="rest-ctrl-icon-btn" onClick={pauseRest} title="Pause rest">
-                <Pause size={16} />
-              </button>
-            ) : (
-              <button className="rest-ctrl-icon-btn" onClick={resumeRest} title="Start rest">
-                <Play size={16} />
-              </button>
-            )}
-            <button className="rest-ctrl-icon-btn" onClick={resetRest} title="Reset rest">
-              <RotateCcw size={16} />
-            </button>
+      {/* 3. Main Split Grid (Exercise Cards + Rest Timer Widget Side-by-Side) */}
+      <div className="workout-split-layout">
+        {/* Left Side: Rest Timer & Quick Controls */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className="nothing-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+            <div className="nothing-card-header" style={{ width: "100%", marginBottom: "0" }}>
+              <span className="nothing-title" style={{ fontSize: "0.95rem" }}>
+                <Timer size={16} color="var(--accent-timer)" /> Rest Timer
+              </span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                {restActive ? "ACTIVE" : "READY"}
+              </span>
+            </div>
+
+            {/* Circular Rest Clock */}
+            <div className="circular-ring-container" style={{ width: "130px", height: "130px" }}>
+              <svg width="130" height="130" style={{ transform: "rotate(-90deg)" }}>
+                <circle cx="65" cy="65" r="54" stroke="var(--bg-secondary)" strokeWidth="8" fill="transparent" />
+                <circle
+                  cx="65"
+                  cy="65"
+                  r="54"
+                  stroke="var(--accent-timer)"
+                  strokeWidth="8"
+                  fill="transparent"
+                  strokeDasharray="339"
+                  strokeDashoffset={339 - (restSeconds / (restInitial || 90)) * 339}
+                  strokeLinecap="round"
+                  style={{ transition: "stroke-dashoffset 0.3s ease-out" }}
+                />
+              </svg>
+              <div className="ring-percent-text" style={{ fontSize: "1.6rem", color: "var(--accent-timer)" }}>
+                {restSeconds}s
+              </div>
+            </div>
+
+            {/* Quick Rest Presets */}
+            <div className="rest-quick-pills">
+              <button className="rest-pill-btn" onClick={() => startRest(60)}>60s</button>
+              <button className="rest-pill-btn" onClick={() => startRest(90)}>90s</button>
+              <button className="rest-pill-btn" onClick={() => startRest(120)}>120s</button>
+            </div>
+
+            {/* Rest Controls */}
+            <div className="rest-controls-row">
+              {restActive ? (
+                <button className="rest-ctrl-icon-btn" onClick={pauseRest} title="Pause rest"><Pause size={16} /></button>
+              ) : (
+                <button className="rest-ctrl-icon-btn" onClick={resumeRest} title="Resume rest"><Play size={16} /></button>
+              )}
+              <button className="rest-ctrl-icon-btn" onClick={resetRest} title="Reset rest"><RotateCcw size={16} /></button>
+            </div>
           </div>
         </div>
 
+        {/* Right Side: Exercise Cards */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ fontSize: "1.2rem", fontWeight: "800" }}>
+              Lifting Exercises ({totalExercises})
+            </h2>
+            <button className="btn-premium-secondary" style={{ padding: "0 14px", minHeight: "38px", fontSize: "0.8rem" }} onClick={() => setShowAddModal(true)}>
+              <Plus size={16} /> Add Exercise
+            </button>
+          </div>
+
+          {totalExercises > 0 ? (
+            <div className="exercise-responsive-grid">
+              {activeWorkout.exercises.map((ex, index) => {
+                const exPr = prs[ex.name.toLowerCase()];
+                const isCompleted = ex.completed;
+
+                return (
+                  <motion.div 
+                    key={ex.id || index}
+                    className={`premium-exercise-card ${isCompleted ? "completed" : ""}`}
+                    whileHover={{ y: -2 }}
+                  >
+                    {/* Header */}
+                    <div>
+                      <div className="exercise-header-top">
+                        <div className="exercise-title-area">
+                          <div className="exercise-icon-box">
+                            <Dumbbell size={20} color={isCompleted ? "var(--accent-success)" : "var(--accent-pull)"} />
+                          </div>
+                          <div className="exercise-meta-box">
+                            <span style={{ fontSize: "1rem", fontWeight: "800", color: "var(--text-primary)" }}>
+                              {ex.name}
+                            </span>
+                            <span className={`exercise-badge-muscle muscle-${ex.muscle || "other"}`}>
+                              {ex.muscle || "General"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Animated Set Complete Toggle Button */}
+                        <button
+                          className={`set-complete-toggle-btn ${isCompleted ? "completed" : ""}`}
+                          onClick={() => handleToggleExercise(index)}
+                          title={isCompleted ? "Mark incomplete" : "Mark completed"}
+                        >
+                          <Check size={18} />
+                        </button>
+                      </div>
+
+                      {/* Weight, Sets, Reps Controls */}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginTop: "16px" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: "700", textTransform: "uppercase" }}>Weight</span>
+                          <div className="premium-input-box" style={{ height: "42px" }}>
+                            <input 
+                              type="number" 
+                              className="premium-inner-input"
+                              value={ex.weight || 0}
+                              onChange={(e) => updateExercise(selectedDay, index, { weight: Number(e.target.value) })}
+                            />
+                            <span className="premium-input-unit">kg</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: "700", textTransform: "uppercase" }}>Sets</span>
+                          <div className="premium-input-box" style={{ height: "42px" }}>
+                            <input 
+                              type="number" 
+                              className="premium-inner-input"
+                              value={ex.sets || 0}
+                              onChange={(e) => updateExercise(selectedDay, index, { sets: Number(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: "700", textTransform: "uppercase" }}>Reps</span>
+                          <div className="premium-input-box" style={{ height: "42px" }}>
+                            <input 
+                              type="number" 
+                              className="premium-inner-input"
+                              value={ex.reps || 0}
+                              onChange={(e) => updateExercise(selectedDay, index, { reps: Number(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PR Footer */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-color)", fontSize: "0.75rem" }}>
+                      <div style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <Trophy size={14} color="var(--accent-protein)" />
+                        <span>Best Record: </span>
+                        <strong style={{ color: "var(--text-primary)" }}>{exPr ? `${exPr.highestWeight}kg` : "None"}</strong>
+                      </div>
+                      <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
+                        {ex.notes || "Stay consistent"}
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="nothing-card" style={{ textAlign: "center", padding: "40px 20px" }}>
+              <div style={{ fontSize: "1rem", fontWeight: "700", color: "var(--text-secondary)" }}>No exercises added to this routine yet.</div>
+              <button className="btn-premium-primary" style={{ margin: "16px auto 0 auto" }} onClick={() => setShowAddModal(true)}>
+                <Plus size={16} /> Add First Exercise
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Right Sidebar Pane: Horizontal pills day selector, Exercise grid cards */}
-      <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        
-        {/* Horizontal Pills Segmented Day Selector */}
-        <div className="segmented-pills-container">
-          {DAYS_CONFIG.map((day) => (
-            <button
-              key={day.key}
-              className={`segmented-pill-btn ${selectedDay === day.key ? "active" : ""}`}
-              onClick={() => setSelectedDay(day.key)}
-            >
-              {selectedDay === day.key && (
-                <motion.div 
-                  layoutId="activePillTab" 
-                  className="segmented-pill-active-bg" 
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              )}
-              <span style={{ position: "relative", zIndex: 1 }}>{day.label}</span>
-            </button>
-          ))}
-        </div>
+      {/* Floating Action Button (FAB) for adding exercises */}
+      <button 
+        className="fab-button" 
+        onClick={() => setShowAddModal(true)}
+        title="Add Exercise"
+      >
+        <Plus size={28} />
+      </button>
 
-        {/* Routine Title */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px" }}>
-          <h2 style={{ fontSize: "1.8rem", fontWeight: "800", letterSpacing: "-0.5px" }}>
-            {activeWorkout.type}
-          </h2>
-          <span className="nothing-label" style={{ color: getWorkoutColor(activeWorkout.type) }}>
-            {selectedDay === "day7" || activeWorkout.isRest ? "Rest day" : "Work day"}
-          </span>
-        </div>
+      {/* Add Exercise Modal Dialog */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
+              <span className="nothing-title">Add Custom Exercise</span>
+              <button className="header-action-btn" onClick={() => setShowAddModal(false)}>✕</button>
+            </div>
 
-        {/* Exercises Grid Panel */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={selectedDay}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.15 }}
-          >
-            {selectedDay === "day7" || activeWorkout.isRest ? (
-              <div className="nothing-card glow-white" style={{ padding: "40px", textAlign: "center" }}>
-                <Moon size={36} color="var(--text-muted)" style={{ marginBottom: "12px" }} />
-                <div style={{ fontSize: "1.1rem", fontWeight: "700" }}>Rest & Recovery</div>
-                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "6px" }}>
-                  Muscle grows during rest. Complete your protein intake, stretch, and recover.
+            <form onSubmit={handleAddCustomExercise} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>EXERCISE NAME</label>
+                <div className="premium-input-box">
+                  <input 
+                    type="text" 
+                    className="premium-inner-input"
+                    placeholder="e.g. Incline DB Press"
+                    value={newExName}
+                    onChange={(e) => setNewExName(e.target.value)}
+                    required
+                  />
                 </div>
               </div>
-            ) : (
-              <div className="exercise-responsive-grid">
-                {activeWorkout.exercises && activeWorkout.exercises.map((ex, index) => (
-                  <ExercisePremiumCard
-                    key={index}
-                    exercise={ex}
-                    index={index}
-                    dayKey={selectedDay}
-                    updateExercise={updateExercise}
-                    historyLogs={history}
-                    workoutColorName={getWorkoutColorName(activeWorkout.type)}
-                  />
-                ))}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>MUSCLE GROUP</label>
+                <select 
+                  className="premium-input-box" 
+                  style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", padding: "0 14px" }}
+                  value={newExMuscle}
+                  onChange={(e) => setNewExMuscle(e.target.value)}
+                >
+                  <option value="push">Push (Chest / Shoulder / Triceps)</option>
+                  <option value="pull">Pull (Back / Biceps)</option>
+                  <option value="legs">Legs (Quads / Hamstrings)</option>
+                  <option value="abs">Abs / Core</option>
+                  <option value="other">Other</option>
+                </select>
               </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
 
-      </div>
-    </motion.div>
-  );
-}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+                <div>
+                  <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>WEIGHT (KG)</label>
+                  <div className="premium-input-box">
+                    <input 
+                      type="number" 
+                      className="premium-inner-input"
+                      value={newExWeight}
+                      onChange={(e) => setNewExWeight(e.target.value)}
+                    />
+                  </div>
+                </div>
 
-// Exercise single item card component in grid mode
-function ExercisePremiumCard({ exercise, index, dayKey, updateExercise, historyLogs, workoutColorName }) {
-  const { startRest, prs } = usePlanner();
-  const [weight, setWeight] = useState(exercise.weight || "");
-  const [sets, setSets] = useState(exercise.sets || 0);
-  const [reps, setReps] = useState(exercise.reps || "");
-  const [notes, setNotes] = useState(exercise.notes || "");
-  const [completed, setCompleted] = useState(exercise.completed || false);
-  const [showNotes, setShowNotes] = useState(false);
+                <div>
+                  <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>SETS</label>
+                  <div className="premium-input-box">
+                    <input 
+                      type="number" 
+                      className="premium-inner-input"
+                      value={newExSets}
+                      onChange={(e) => setNewExSets(e.target.value)}
+                    />
+                  </div>
+                </div>
 
-  // Stats progression metrics
-  const [prevLogs, setPrevLogs] = useState([]);
-  const [smartSuggestion, setSmartSuggestion] = useState(null);
+                <div>
+                  <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>REPS</label>
+                  <div className="premium-input-box">
+                    <input 
+                      type="number" 
+                      className="premium-inner-input"
+                      value={newExReps}
+                      onChange={(e) => setNewExReps(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
 
-  useEffect(() => {
-    setWeight(exercise.weight || "");
-    setSets(exercise.sets || 0);
-    setReps(exercise.reps || "");
-    setNotes(exercise.notes || "");
-    setCompleted(exercise.completed || false);
-  }, [exercise]);
-
-  // Compute smart weight advice
-  useEffect(() => {
-    if (historyLogs && historyLogs.length > 0) {
-      const matchName = exercise.name.toLowerCase().trim();
-      const matchLogs = [];
-
-      const sortedHistory = [...historyLogs].sort((a,b) => a.id.localeCompare(b.id));
-      sortedHistory.forEach((log) => {
-        const found = log.exercises?.find((ex) => ex.name.toLowerCase().trim() === matchName && ex.completed);
-        if (found) {
-          matchLogs.push({
-            date: log.date,
-            weight: parseFloat(found.weight) || 0,
-            reps: parseInt(found.reps) || 0,
-            sets: parseInt(found.sets) || 0
-          });
-        }
-      });
-
-      const latestLogs = [...matchLogs].reverse().slice(0, 3);
-      setPrevLogs(latestLogs);
-
-      if (latestLogs.length > 0) {
-        const last = latestLogs[0];
-        const lastWeight = last.weight;
-        const lastReps = last.reps;
-
-        if (lastReps >= 10 && lastWeight > 0) {
-          setSmartSuggestion({
-            type: "increase",
-            text: `Increase to ${lastWeight + 2.5}kg`
-          });
-        } else if (lastReps > 0 && lastReps < 6 && lastWeight > 0) {
-          setSmartSuggestion({
-            type: "reduce",
-            text: "Focus form / reduce weight"
-          });
-        } else {
-          setSmartSuggestion({
-            type: "keep",
-            text: "Keep current weight"
-          });
-        }
-      } else {
-        setSmartSuggestion(null);
-      }
-    }
-  }, [historyLogs, exercise]);
-
-  const handleBlur = (field, localVal) => {
-    let saveVal = localVal;
-    if (field === "sets") {
-      saveVal = parseInt(localVal) || 0;
-    }
-    if (exercise[field] !== saveVal) {
-      updateExercise(dayKey, index, { [field]: saveVal });
-    }
-  };
-
-  const handleToggle = (checked) => {
-    setCompleted(checked);
-    updateExercise(dayKey, index, { completed: checked });
-    if (checked) {
-      startRest(90); // default 90s rest
-    }
-  };
-
-  const sanitizedName = exercise.name.toLowerCase().trim();
-  const currentPr = prs[sanitizedName];
-
-  const getMuscleBadgeClass = (muscle) => {
-    const m = (muscle || "").toLowerCase();
-    if (m.includes("chest") || m.includes("tricep")) return "muscle-push";
-    if (m.includes("back") || m.includes("bicep")) return "muscle-pull";
-    if (m.includes("quad") || m.includes("hamstring") || m.includes("calf") || m.includes("leg")) return "muscle-legs";
-    if (m.includes("abs")) return "muscle-abs";
-    return "muscle-other";
-  };
-
-  return (
-    <div className={`premium-exercise-card glow-${workoutColorName} ${completed ? "completed" : ""}`}>
-      {/* Top row Info */}
-      <div className="exercise-header-top">
-        <div className="exercise-title-area">
-          <div className="exercise-icon-box" style={{ borderColor: completed ? "var(--accent-success)" : "var(--border-color)" }}>
-            <Dumbbell size={18} color={completed ? "var(--accent-success)" : "var(--text-primary)"} />
+              <button type="submit" className="btn-premium-primary" style={{ marginTop: "10px" }}>
+                Save Exercise to Routine
+              </button>
+            </form>
           </div>
-          <div className="exercise-meta-box">
-            <span style={{ fontSize: "0.95rem", fontWeight: "700" }}>{exercise.name}</span>
-            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-              <span className={`exercise-badge-muscle ${getMuscleBadgeClass(exercise.muscleGroup)}`}>
-                {exercise.muscleGroup || "Body"}
-              </span>
-              {currentPr && (
-                <span className="pr-tag-unlocked" style={{ margin: 0, fontSize: "0.55rem" }}>
-                  PR: {currentPr.highestWeight}kg
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Actions Complete & Notes Toggle */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <button 
-            className="header-action-btn" 
-            style={{ color: notes ? "var(--accent-orange)" : "var(--text-secondary)", width: "30px", height: "30px" }}
-            onClick={() => setShowNotes(!showNotes)}
-            title="Toggle notes"
-          >
-            <NotebookText size={16} />
-          </button>
-          
-          <div className="nothing-toggle">
-            <label className="nothing-toggle-label">
-              <input
-                type="checkbox"
-                checked={completed}
-                onChange={(e) => handleToggle(e.target.checked)}
-              />
-              <span className="nothing-slider"></span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Inputs Form Row */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px", margin: "10px 0" }}>
-        
-        {/* Weight input box */}
-        <div className="premium-input-box">
-          <input
-            type="text"
-            className="premium-inner-input"
-            value={weight}
-            placeholder="0"
-            onChange={(e) => setWeight(e.target.value)}
-            onBlur={() => handleBlur("weight", weight)}
-          />
-          <span className="premium-input-unit">kg</span>
-        </div>
-
-        <div style={{ display: "flex", gap: "8px" }}>
-          {/* Sets input box */}
-          <div className="premium-input-box">
-            <input
-              type="number"
-              className="premium-inner-input"
-              value={sets}
-              min="0"
-              max="10"
-              onChange={(e) => setSets(e.target.value)}
-              onBlur={() => handleBlur("sets", sets)}
-            />
-            <span className="premium-input-unit">Sets</span>
-          </div>
-
-          {/* Reps input box */}
-          <div className="premium-input-box">
-            <input
-              type="text"
-              className="premium-inner-input"
-              value={reps}
-              placeholder="0"
-              onChange={(e) => setReps(e.target.value)}
-              onBlur={() => handleBlur("reps", reps)}
-            />
-            <span className="premium-input-unit">Reps</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Progression details footer */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-        {smartSuggestion && (
-          <div className={`exercise-suggest-badge ${smartSuggestion.type}`} style={{ width: "fit-content" }}>
-            <span>💡</span> {smartSuggestion.text}
-          </div>
-        )}
-        
-        {prevLogs.length > 0 && (
-          <div className="exercise-previous-readout" style={{ fontSize: "0.65rem" }}>
-            Prev: {prevLogs.map((l) => `${l.weight}kg × ${l.reps}`).join(", ")}
-          </div>
-        )}
-      </div>
-
-      {/* Notes Textarea expander */}
-      {showNotes && (
-        <div style={{ marginTop: "10px" }}>
-          <textarea
-            className="nothing-input"
-            style={{ height: "45px", fontSize: "0.8rem", padding: "6px 10px", fontFamily: "var(--font-sans)", resize: "none", backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
-            placeholder="Enter training notes..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            onBlur={() => handleBlur("notes", notes)}
-          />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

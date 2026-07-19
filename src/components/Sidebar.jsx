@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { usePlanner } from "../contexts/PlannerContext";
 import { 
+  Home as HomeIcon,
   Dumbbell, 
   Utensils, 
   BookOpen, 
   Calendar, 
-  Settings as SettingsIcon, 
+  User as ProfileIcon, 
   ChevronLeft, 
   ChevronRight 
 } from "lucide-react";
@@ -15,15 +16,16 @@ export default function Sidebar() {
   const { profile } = usePlanner();
   const [collapsed, setCollapsed] = useState(false);
 
-  const userName = profile?.name || "User";
+  const userName = profile?.name || "Athlete";
   const avatarLetter = userName.charAt(0).toUpperCase();
 
   const menuItems = [
-    { name: "Workout", path: "/", icon: Dumbbell, glowClass: "glow-red" },
-    { name: "Diet", path: "/diet", icon: Utensils, glowClass: "glow-purple" },
-    { name: "Food Library", path: "/food", icon: BookOpen, glowClass: "glow-blue" },
-    { name: "History", path: "/history", icon: Calendar, glowClass: "glow-history" },
-    { name: "Settings", path: "/settings", icon: SettingsIcon, glowClass: "glow-white" }
+    { name: "Home", path: "/", icon: HomeIcon },
+    { name: "Workout", path: "/workout", icon: Dumbbell },
+    { name: "Diet", path: "/diet", icon: Utensils },
+    { name: "Food Library", path: "/food", icon: BookOpen },
+    { name: "History", path: "/history", icon: Calendar },
+    { name: "Profile", path: "/profile", icon: ProfileIcon }
   ];
 
   return (
@@ -53,7 +55,7 @@ export default function Sidebar() {
             <NavLink
               key={item.name}
               to={item.path}
-              className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""} ${item.glowClass}`}
+              className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
               title={collapsed ? item.name : undefined}
             >
               <IconComponent size={20} />
@@ -64,17 +66,17 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <Link to="/settings" className="glow-white" style={{ display: "flex", alignItems: "center", gap: "12px", textDecoration: "none", color: "inherit", width: "100%", padding: "6px", borderRadius: "8px" }}>
+        <Link to="/profile" style={{ display: "flex", alignItems: "center", gap: "12px", textDecoration: "none", color: "inherit", width: "100%", padding: "6px", borderRadius: "8px" }}>
           <div className="avatar-circle" style={{ flexShrink: 0 }}>
             {avatarLetter}
           </div>
           {!collapsed && (
             <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: "0.85rem", fontWeight: "700", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {userName}
               </span>
-              <span className="nothing-label" style={{ fontSize: "0.6rem", textTransform: "none", color: "var(--text-secondary)" }}>
-                View Settings
+              <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
+                View Profile
               </span>
             </div>
           )}
