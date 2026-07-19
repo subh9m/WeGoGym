@@ -7,12 +7,11 @@ import Auth from "./components/Auth";
 import Onboarding from "./components/Onboarding";
 import Sidebar from "./components/Sidebar";
 import BottomNav from "./components/BottomNav";
-import Home from "./components/Home";
 import Workout from "./components/Workout";
 import Diet from "./components/Diet";
 import FoodReference from "./components/FoodReference";
 import History from "./components/History";
-import Profile from "./components/Profile";
+import Settings from "./components/Settings";
 import CommandPalette from "./components/CommandPalette";
 
 import { Search, Bell, Sun, Moon } from "lucide-react";
@@ -48,12 +47,14 @@ function AppContent() {
   // Global Keyboard Shortcuts (Ctrl/Cmd + K and Workout Day Arrows)
   useEffect(() => {
     const handleGlobalKeys = (e) => {
+      // 1. Ctrl + K or Cmd + K toggles Command Palette
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setIsPaletteOpen((prev) => !prev);
       }
 
-      if (location.pathname === "/workout") {
+      // 2. Left/Right Arrow keys shift day selector tabs when active on the Workout page
+      if (location.pathname === "/" || location.pathname === "/workout") {
         if (e.key === "ArrowLeft") {
           window.dispatchEvent(new CustomEvent("navigateDayTab", { detail: { direction: "prev" } }));
         } else if (e.key === "ArrowRight") {
@@ -83,10 +84,10 @@ function AppContent() {
         background: "var(--bg-primary)",
         color: "var(--text-primary)"
       }}>
-        <div style={{ fontSize: "2rem", marginBottom: "12px", fontWeight: "900", letterSpacing: "-0.5px" }}>
+        <div style={{ fontFamily: "var(--font-dot)", fontSize: "2.2rem", marginBottom: "12px", textTransform: "uppercase", fontWeight: "900" }}>
           WeGoGym
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
           Syncing with Cloud Firestore...
         </div>
       </div>
@@ -101,20 +102,18 @@ function AppContent() {
   const getPageTitle = () => {
     switch (location.pathname) {
       case "/":
-        return "Home Dashboard";
       case "/workout":
-        return "Workout Routine";
+        return "Workout Dashboard";
       case "/diet":
-        return "Diet & Nutrition";
+        return "Diet Tracker";
       case "/food":
-        return "Food Reference Library";
+        return "Food Library";
       case "/history":
         return "Workout History";
-      case "/profile":
       case "/settings":
-        return "User Profile";
+        return "Account Settings";
       default:
-        return "WeGoGym Fitness";
+        return "Bodybuilding Planner";
     }
   };
 
@@ -126,7 +125,7 @@ function AppContent() {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
-  const userName = profile?.name || "Athlete";
+  const userName = profile?.name || "User";
   const avatarLetter = userName.charAt(0).toUpperCase();
 
   return (
@@ -139,6 +138,7 @@ function AppContent() {
         {/* Sticky Premium Header Bar */}
         <header className="premium-header">
           <div className="header-left-sec">
+            {/* Mobile Logo display (hidden on desktop sidebar) */}
             <span className="sidebar-logo mobile-logo-only" style={{ display: "none" }}>WeGoGym</span>
           </div>
           
@@ -147,15 +147,18 @@ function AppContent() {
           </div>
           
           <div className="header-right-sec">
+            {/* Search shortcut toggle */}
             <button className="header-action-btn" onClick={handleOpenSearch} title="Search (Ctrl + K)">
               <Search size={18} />
             </button>
             
+            {/* Theme Toggle Button */}
             <button className="header-action-btn" onClick={toggleTheme} title="Toggle color theme">
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             
-            <div className="avatar-circle" onClick={() => navigate("/profile")} title="View Profile">
+            {/* Profile Avatar circle */}
+            <div className="avatar-circle" onClick={() => navigate("/settings")} title="View settings">
               {avatarLetter}
             </div>
           </div>
@@ -164,13 +167,12 @@ function AppContent() {
         {/* Content Body Router */}
         <main className="app-container">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Workout />} />
             <Route path="/workout" element={<Workout />} />
             <Route path="/diet" element={<Diet />} />
             <Route path="/food" element={<FoodReference />} />
             <Route path="/history" element={<History />} />
-            <Route path="/profile" element={<Profile theme={theme} setTheme={setTheme} />} />
-            <Route path="/settings" element={<Profile theme={theme} setTheme={setTheme} />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

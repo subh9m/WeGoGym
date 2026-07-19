@@ -14,6 +14,7 @@ import {
   Wheat, 
   Flame, 
   Utensils, 
+  Dumbbell,
   X
 } from "lucide-react";
 
@@ -105,6 +106,28 @@ export default function FoodReference() {
     setModalOpen(false);
   };
 
+  const getCategoryMeta = (food) => {
+    const isVeg = food.isVeg !== undefined ? food.isVeg : food.category === "veg";
+    const proteinVal = food.protein || 0;
+
+    if (food.category === "dairy") {
+      return { label: "Dairy", icon: <Milk size={18} color="var(--accent-blue)" />, badgeClass: "muscle-pull" };
+    }
+    if (food.category === "grains") {
+      return { label: "Grains", icon: <Wheat size={18} color="var(--accent-abs)" />, badgeClass: "muscle-abs" };
+    }
+    if (food.category === "fruits") {
+      return { label: "Fruit/Veg", icon: <Apple size={18} color="var(--accent-legs)" />, badgeClass: "muscle-legs" };
+    }
+    if (proteinVal >= 25) {
+      return { label: "High Protein", icon: <Flame size={18} color="var(--accent-protein)" />, badgeClass: "muscle-push" };
+    }
+    if (isVeg) {
+      return { label: "Vegetarian", icon: <Leaf size={18} color="var(--accent-legs)" />, badgeClass: "muscle-legs" };
+    }
+    return { label: "Non-Veg", icon: <Utensils size={18} color="var(--accent-push)" />, badgeClass: "muscle-push" };
+  };
+
   const filteredFoods = (foodReferences || []).filter((food) => {
     const matchesSearch = food.name.toLowerCase().includes(searchQuery.toLowerCase());
     const isFav = favorites.includes(food.id);
@@ -124,7 +147,16 @@ export default function FoodReference() {
       transition={{ duration: 0.25 }}
       style={{ display: "flex", flexDirection: "column", gap: "20px" }}
     >
-      {/* Search Toolbar & Create Action */}
+      {/* Page Title & Search Toolbar */}
+      <div style={{ margin: "8px 0" }}>
+        <h1 className="nothing-title" style={{ fontSize: "1.6rem", marginBottom: "4px" }}>
+          Food Library
+        </h1>
+        <p className="nothing-label" style={{ fontSize: "0.75rem" }}>
+          Nutritional Reference Database & Custom Entries
+        </p>
+      </div>
+
       <div className="search-toolbar-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
         <div className="premium-input-box" style={{ flex: 1 }}>
           <Search size={18} color="var(--text-secondary)" style={{ marginRight: "10px" }} />
@@ -138,11 +170,11 @@ export default function FoodReference() {
         </div>
 
         <button className="btn-premium-primary" onClick={handleOpenAdd}>
-          <Plus size={18} /> Add New Food
+          <Plus size={18} /> Add Food
         </button>
       </div>
 
-      {/* Category Filter Chips Toolbar */}
+      {/* Category Filter Chips Bar */}
       <div className="category-filter-bar">
         {FILTER_CHIPS.map((chip) => {
           const Icon = chip.icon;
@@ -160,71 +192,73 @@ export default function FoodReference() {
         })}
       </div>
 
-      {/* Modern Food Cards Grid */}
+      {/* Food Cards Grid */}
       <div className="food-grid-layout">
         {filteredFoods.map((food) => {
           const isFav = favorites.includes(food.id);
+          const meta = getCategoryMeta(food);
 
           return (
             <motion.div 
               key={food.id}
-              className="food-library-card"
+              className="food-library-card glow-white"
               whileHover={{ y: -3 }}
             >
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0, flex: 1 }}>
-                    <span style={{ fontSize: "1.05rem", fontWeight: "800", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {food.name}
-                    </span>
-                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>
-                      {food.serving}
-                    </span>
+                {/* Non-overlapping Card Top Header Row */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", width: "100%" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", minWidth: 0, flex: 1 }}>
+                    <div className="exercise-icon-box" style={{ width: "42px", height: "42px", flexShrink: 0, borderRadius: "12px", background: "var(--bg-secondary)" }}>
+                      {meta.icon}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+                      <span style={{ fontSize: "1rem", fontWeight: "800", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {food.name}
+                      </span>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "500" }}>
+                        {food.serving}
+                      </span>
+                    </div>
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
-                    <span style={{ fontSize: "1.3rem", fontWeight: "900", fontFamily: "var(--font-mono)", color: "var(--accent-protein)", lineHeight: 1 }}>
+                    <span style={{ fontSize: "1.3rem", fontWeight: "900", fontFamily: "var(--font-mono)", color: "var(--text-primary)", lineHeight: 1 }}>
                       {food.protein}g
                     </span>
-                    <span style={{ fontSize: "0.6rem", color: "var(--text-muted)", textTransform: "uppercase", marginTop: "2px", fontWeight: "700" }}>
+                    <span style={{ fontSize: "0.55rem", color: "var(--text-muted)", textTransform: "uppercase", marginTop: "2px", fontWeight: "700" }}>
                       Protein
                     </span>
                   </div>
                 </div>
-
-                <div style={{ marginTop: "12px", display: "flex", gap: "6px" }}>
-                  <span style={{ fontSize: "0.7rem", padding: "2px 8px", borderRadius: "8px", background: food.isVeg ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", color: food.isVeg ? "var(--accent-legs)" : "var(--accent-push)", fontWeight: "700" }}>
-                    {food.isVeg ? "Vegetarian" : "Non-Veg"}
-                  </span>
-                </div>
               </div>
 
-              {/* Action Buttons Footer */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-color)" }}>
-                <button 
-                  className={`header-action-btn ${isFav ? "active" : ""}`}
-                  style={{ width: "36px", height: "36px", color: isFav ? "var(--accent-pr)" : "var(--text-secondary)" }}
-                  onClick={(e) => toggleFavorite(food.id, e)}
-                  title={isFav ? "Remove favorite" : "Add to favorites"}
-                >
-                  <Heart size={16} fill={isFav ? "var(--accent-pr)" : "none"} />
-                </button>
+              {/* Actions & Category Badge Footer */}
+              <div>
+                <span className={`exercise-badge-muscle ${meta.badgeClass}`} style={{ fontSize: "0.6rem" }}>
+                  {meta.label}
+                </span>
 
-                <div style={{ display: "flex", gap: "6px" }}>
+                <div className="food-card-actions">
                   <button 
-                    className="header-action-btn"
-                    style={{ width: "36px", height: "36px" }}
+                    className={`icon-action-btn fav-btn ${isFav ? "fav-active" : ""}`}
+                    onClick={(e) => toggleFavorite(food.id, e)}
+                    title={isFav ? "Remove favorite" : "Add favorite"}
+                  >
+                    <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+                  </button>
+
+                  <button 
+                    className="icon-action-btn edit-btn"
                     onClick={(e) => handleOpenEdit(food, e)}
-                    title="Edit entry"
+                    title="Edit food"
                   >
                     <Edit3 size={16} />
                   </button>
 
                   <button 
-                    className="header-action-btn"
-                    style={{ width: "36px", height: "36px", color: "var(--accent-push)" }}
+                    className="icon-action-btn delete-btn"
                     onClick={(e) => { e.stopPropagation(); deleteFoodRef(food.id); }}
-                    title="Delete entry"
+                    title="Delete food"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -240,8 +274,8 @@ export default function FoodReference() {
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
-              <span className="nothing-title">
-                {isEditing ? "Edit Food Entry" : "Create New Food Entry"}
+              <span className="nothing-title" style={{ fontSize: "1.1rem" }}>
+                {isEditing ? "Edit Food Reference" : "Create New Food Entry"}
               </span>
               <button className="header-action-btn" onClick={() => setModalOpen(false)}>
                 <X size={18} />
@@ -250,7 +284,7 @@ export default function FoodReference() {
 
             <form onSubmit={handleFormSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>FOOD NAME</label>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>FOOD NAME</label>
                 <div className="premium-input-box">
                   <input 
                     type="text" 
@@ -264,7 +298,7 @@ export default function FoodReference() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>SERVING SIZE</label>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>SERVING SIZE</label>
                 <div className="premium-input-box">
                   <input 
                     type="text" 
@@ -278,7 +312,7 @@ export default function FoodReference() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>PROTEIN (GRAMS)</label>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>PROTEIN (GRAMS)</label>
                 <div className="premium-input-box">
                   <input 
                     type="number" 
@@ -292,12 +326,12 @@ export default function FoodReference() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>DIETARY PREFERENCE</label>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>DIET TYPE</label>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button
                     type="button"
                     className="btn-premium-secondary"
-                    style={{ flex: 1, minHeight: "44px", background: isVegOption ? "rgba(16, 185, 129, 0.15)" : "var(--bg-secondary)", borderColor: isVegOption ? "var(--accent-legs)" : "var(--border-color)", color: isVegOption ? "var(--accent-legs)" : "var(--text-secondary)" }}
+                    style={{ flex: 1, height: "44px", background: isVegOption ? "var(--text-primary)" : "transparent", color: isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
                     onClick={() => setIsVegOption(true)}
                   >
                     Vegetarian
@@ -305,7 +339,7 @@ export default function FoodReference() {
                   <button
                     type="button"
                     className="btn-premium-secondary"
-                    style={{ flex: 1, minHeight: "44px", background: !isVegOption ? "rgba(239, 68, 68, 0.15)" : "var(--bg-secondary)", borderColor: !isVegOption ? "var(--accent-push)" : "var(--border-color)", color: !isVegOption ? "var(--accent-push)" : "var(--text-secondary)" }}
+                    style={{ flex: 1, height: "44px", background: !isVegOption ? "var(--text-primary)" : "transparent", color: !isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
                     onClick={() => setIsVegOption(false)}
                   >
                     Non-Veg
@@ -314,7 +348,7 @@ export default function FoodReference() {
               </div>
 
               <button type="submit" className="btn-premium-primary" style={{ marginTop: "10px" }}>
-                {isEditing ? "Save Changes" : "Create Reference Item"}
+                {isEditing ? "Save Entry Changes" : "Create Reference Item"}
               </button>
             </form>
           </div>

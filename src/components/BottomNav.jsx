@@ -1,20 +1,20 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { 
-  Home as HomeIcon, 
   Dumbbell, 
   Utensils, 
+  BookOpen, 
   Calendar, 
-  User as ProfileIcon 
+  Settings as SettingsIcon 
 } from "lucide-react";
 
 export default function BottomNav() {
   const menuItems = [
-    { name: "Home", path: "/", icon: HomeIcon },
-    { name: "Workout", path: "/workout", icon: Dumbbell },
+    { name: "Workout", path: "/", icon: Dumbbell },
     { name: "Diet", path: "/diet", icon: Utensils },
+    { name: "Food", path: "/food", icon: BookOpen },
     { name: "History", path: "/history", icon: Calendar },
-    { name: "Profile", path: "/profile", icon: ProfileIcon }
+    { name: "Settings", path: "/settings", icon: SettingsIcon }
   ];
 
   return (

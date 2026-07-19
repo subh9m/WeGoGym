@@ -54,12 +54,6 @@ export default function History() {
   const currentStreak = profile?.streak?.current || 0;
   const longestStreak = profile?.streak?.longest || 0;
 
-  // Calculate total volume across all history
-  let totalVolumeKg = 0;
-  (history || []).forEach((log) => {
-    totalVolumeKg += getSessionVolume(log.exercises || []);
-  });
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 12 }} 
@@ -67,63 +61,63 @@ export default function History() {
       transition={{ duration: 0.25 }}
       style={{ display: "flex", flexDirection: "column", gap: "24px" }}
     >
-      {/* 1. Top Statistics Summary Cards */}
+      {/* Top 4 Dashboard Stat Metrics Cards */}
       <div className="dashboard-grid">
-        <div className="metric-card" style={{ borderLeft: "4px solid var(--accent-abs)" }}>
+        <div className="metric-card glow-orange" style={{ borderColor: "rgba(249, 115, 22, 0.2)" }}>
           <div className="metric-card-header">
             <span>Current Streak</span>
             <Flame size={16} color="var(--accent-abs)" />
           </div>
           <div className="metric-value">
-            <span className="metric-value-dot">🔥 {currentStreak}</span>
+            <span className="metric-value-dot">{currentStreak}</span>
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>days</span>
           </div>
         </div>
 
-        <div className="metric-card" style={{ borderLeft: "4px solid var(--accent-pr)" }}>
+        <div className="metric-card glow-white">
           <div className="metric-card-header">
             <span>Longest Streak</span>
-            <Trophy size={16} color="var(--accent-pr)" />
+            <Trophy size={16} color="var(--accent-history)" />
           </div>
           <div className="metric-value">
             <span className="metric-value-dot">{longestStreak}</span>
-            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>days best</span>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>days</span>
           </div>
         </div>
 
-        <div className="metric-card" style={{ borderLeft: "4px solid var(--accent-success)" }}>
+        <div className="metric-card glow-green">
           <div className="metric-card-header">
-            <span>Total Sessions</span>
-            <CalendarDays size={16} color="var(--accent-success)" />
+            <span>Active Days</span>
+            <CalendarDays size={16} color="var(--accent-legs)" />
           </div>
           <div className="metric-value">
             <span className="metric-value-dot">{totalWorkoutDays}</span>
-            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>workouts</span>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>days</span>
           </div>
         </div>
 
-        <div className="metric-card" style={{ borderLeft: "4px solid var(--accent-pull)" }}>
+        <div className="metric-card glow-blue">
           <div className="metric-card-header">
-            <span>Total Volume</span>
-            <TrendingUp size={16} color="var(--accent-pull)" />
+            <span>Total Workouts</span>
+            <Dumbbell size={16} color="var(--accent-blue)" />
           </div>
           <div className="metric-value">
-            <span className="metric-value-dot">{Math.round(totalVolumeKg)}</span>
-            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>kg lifted</span>
+            <span className="metric-value-dot">{totalWorkoutDays}</span>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>sessions</span>
           </div>
         </div>
       </div>
 
-      {/* 2. LeetCode Activity Heatmap Card */}
-      <div className="heatmap-container">
-        <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
+      {/* LeetCode Activity Heatmap Card */}
+      <div className="heatmap-container glow-white">
+        <div className="nothing-card-header" style={{ marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
           <span className="nothing-title">
-            <Activity size={18} color="var(--accent-legs)" /> Activity Heatmap
+            <Activity size={18} /> Workout Activity Heatmap
           </span>
 
           <select 
             className="premium-input-box"
-            style={{ width: "auto", height: "38px", background: "var(--bg-secondary)", padding: "0 12px", fontSize: "0.8rem", fontWeight: "700" }}
+            style={{ width: "auto", height: "36px", background: "var(--bg-secondary)", padding: "0 12px", fontSize: "0.8rem", fontWeight: "700" }}
             value={selectedYear}
             onChange={(e) => setSelectedYear(Number(e.target.value))}
           >
@@ -135,7 +129,6 @@ export default function History() {
 
         <div className="heatmap-wrapper">
           <div className="heatmap-scroll-area">
-            {/* Heatmap Grid Matrix */}
             <div className="heatmap-grid-core">
               {Array.from({ length: 371 }).map((_, idx) => {
                 const level = (history || []).length > 0 && idx % 7 === 0 ? 3 : (history || []).length > 0 && idx % 11 === 0 ? 1 : 0;
@@ -152,11 +145,12 @@ export default function History() {
         </div>
       </div>
 
-      {/* 3. Timeline History Log Cards */}
+      {/* Timeline Workout Log Cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <h2 style={{ fontSize: "1.2rem", fontWeight: "800" }}>
-          Past Workout Logs ({history.length})
-        </h2>
+        <div className="nothing-card-header" style={{ marginBottom: "0" }}>
+          <span className="nothing-title">Workout Logs ({history.length})</span>
+          <span className="nothing-label">Session Archives</span>
+        </div>
 
         {history && history.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -166,7 +160,7 @@ export default function History() {
               return (
                 <motion.div
                   key={log.id}
-                  className="nothing-card"
+                  className="nothing-card glow-white"
                   whileHover={{ y: -2 }}
                   style={{ cursor: "pointer", padding: "20px" }}
                   onClick={() => setDrawerLog(log)}
@@ -175,7 +169,7 @@ export default function History() {
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span style={{ fontSize: "1.1rem", fontWeight: "800" }}>{log.dayName} Workout</span>
-                        <span style={{ fontSize: "0.7rem", padding: "2px 8px", borderRadius: "8px", background: "rgba(99, 102, 241, 0.12)", color: "var(--accent-pull)", fontWeight: "700" }}>
+                        <span className="exercise-badge-muscle muscle-push" style={{ fontSize: "0.65rem" }}>
                           {log.routineType || "Split Routine"}
                         </span>
                       </div>
@@ -186,14 +180,14 @@ export default function History() {
 
                     <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: "1.1rem", fontWeight: "900", fontFamily: "var(--font-mono)", color: "var(--accent-protein)" }}>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "800", fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>
                           {sessionVol}kg
                         </div>
-                        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: "700" }}>
+                        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: "600" }}>
                           {log.completedCount} exercises
                         </div>
                       </div>
-                      <ChevronRight size={20} color="var(--text-secondary)" />
+                      <ChevronRight size={18} color="var(--text-secondary)" />
                     </div>
                   </div>
                 </motion.div>
@@ -201,20 +195,23 @@ export default function History() {
             })}
           </div>
         ) : (
-          <div className="nothing-card" style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-            No past workout logs recorded yet. Start a session from the Workout tab!
+          <div className="nothing-card" style={{ textAlign: "center", padding: "40px 20px" }}>
+            <span className="nothing-label">No History Yet</span>
+            <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginTop: "6px" }}>
+              Complete your first workout session to view logged history & statistics!
+            </div>
           </div>
         )}
       </div>
 
-      {/* 4. Slide-Over Detail Drawer */}
+      {/* Slide-Over Right Drawer Panel */}
       {drawerLog && (
         <div className="drawer-overlay" onClick={() => setDrawerLog(null)}>
           <div className="right-drawer-panel" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
               <div>
-                <h3 style={{ fontSize: "1.2rem", fontWeight: "800" }}>{drawerLog.dayName} Log Summary</h3>
-                <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{formatReadableDate(drawerLog.date)}</span>
+                <h3 className="nothing-title" style={{ fontSize: "1.2rem" }}>{drawerLog.dayName} Log Details</h3>
+                <span className="nothing-label">{formatReadableDate(drawerLog.date)}</span>
               </div>
               <button className="header-action-btn" onClick={() => setDrawerLog(null)}>
                 <X size={18} />
@@ -228,23 +225,38 @@ export default function History() {
                   <div className="metric-value">{drawerLog.durationMinutes} mins</div>
                 </div>
                 <div className="metric-card">
-                  <span className="nothing-label">Total Volume</span>
+                  <span className="nothing-label">Session Volume</span>
                   <div className="metric-value">{getSessionVolume(drawerLog.exercises || [])}kg</div>
                 </div>
               </div>
 
               <div>
-                <h4 style={{ fontSize: "0.95rem", fontWeight: "800", marginBottom: "10px" }}>Completed Lifts</h4>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {(drawerLog.exercises || []).filter(e => e.completed).map((ex, idx) => (
-                    <div key={idx} style={{ padding: "12px", background: "var(--bg-secondary)", borderRadius: "12px", border: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ fontWeight: "800", fontSize: "0.9rem" }}>{ex.name}</div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{ex.sets} sets × {ex.reps} reps</div>
-                      </div>
-                      <div style={{ fontWeight: "900", fontFamily: "var(--font-mono)" }}>{ex.weight}kg</div>
-                    </div>
-                  ))}
+                <span className="nothing-label" style={{ marginBottom: "8px", display: "block" }}>Lifting Log Entries</span>
+                <div style={{ border: "1px solid var(--border-color)", borderRadius: "12px", overflowX: "auto", width: "100%", WebkitOverflowScrolling: "touch" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                    <thead>
+                      <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-color)" }}>
+                        <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--text-secondary)" }}>Exercise</th>
+                        <th style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>Weight</th>
+                        <th style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>Sets</th>
+                        <th style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>Reps</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(drawerLog.exercises || []).filter(ex => ex.completed).map((ex, idx) => (
+                        <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                          <td style={{ padding: "10px 14px" }}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: "700" }}>{ex.name}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{ex.weight}kg</td>
+                          <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{ex.sets}</td>
+                          <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{ex.reps}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>

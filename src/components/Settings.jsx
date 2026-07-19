@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
 import { useAuth } from "../contexts/AuthContext";
 import { motion } from "framer-motion";
-import { Settings as SettingsIcon, LogOut, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Settings as SettingsIcon, LogOut, ShieldCheck, Check } from "lucide-react";
 
 export default function Settings() {
   const { profile, updateProfileSettings } = usePlanner();
@@ -43,43 +43,45 @@ export default function Settings() {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 15 }} 
+      initial={{ opacity: 0, y: 12 }} 
       animate={{ opacity: 1, y: 0 }} 
-      style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "600px", margin: "0 auto" }}
+      transition={{ duration: 0.25 }}
+      style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "600px", margin: "0 auto", width: "100%" }}
     >
       {/* Profile configurations card */}
       <div className="nothing-card glow-white">
         <div className="nothing-card-header">
-          <span className="nothing-title" style={{ gap: "8px" }}>
+          <span className="nothing-title">
             <SettingsIcon size={18} /> Profile Configuration
           </span>
-          <span className="nothing-label">Edit profile details</span>
+          <span className="nothing-label">Account Preferences</span>
         </div>
 
         {saveSuccess && (
-          <div style={{ background: "rgba(34, 197, 94, 0.1)", border: "1px solid var(--accent-success)", color: "var(--accent-success)", padding: "12px 16px", borderRadius: "10px", fontSize: "0.85rem", marginBottom: "16px", fontWeight: "600" }}>
-            ✓ Profile settings saved successfully.
+          <div style={{ background: "rgba(34, 197, 94, 0.1)", border: "1px solid var(--accent-success)", color: "var(--accent-success)", padding: "12px 16px", borderRadius: "10px", fontSize: "0.85rem", marginBottom: "16px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
+            <Check size={16} /> Profile settings saved successfully.
           </div>
         )}
 
         <form onSubmit={handleSaveSettings} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {/* User Name input */}
-          <div className="ref-form-group">
-            <label className="nothing-label" style={{ fontSize: "0.65rem" }}>User Name</label>
-            <input
-              type="text"
-              className="nothing-input"
-              style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", height: "48px", borderRadius: "12px", padding: "0 16px", fontSize: "0.95rem" }}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={loading}
-              required
-            />
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label className="nothing-label" style={{ fontSize: "0.65rem" }}>USER NAME</label>
+            <div className="premium-input-box">
+              <input
+                type="text"
+                className="premium-inner-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
           </div>
 
           {/* Daily Protein Target input */}
-          <div className="ref-form-group">
-            <label className="nothing-label" style={{ fontSize: "0.65rem" }}>Daily Protein Target (g)</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label className="nothing-label" style={{ fontSize: "0.65rem" }}>DAILY PROTEIN TARGET</label>
             <div className="premium-input-box">
               <input
                 type="number"
@@ -93,16 +95,16 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Diet category toggler */}
-          <div className="ref-form-group">
-            <label className="nothing-label" style={{ fontSize: "0.65rem" }}>Diet Preference</label>
+          {/* Diet Preference toggles */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label className="nothing-label" style={{ fontSize: "0.65rem" }}>DIET PREFERENCE</label>
             <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
               <button
                 type="button"
-                className={`btn-premium-secondary ${dietPreference === "veg" ? "active" : ""}`}
+                className="btn-premium-secondary"
                 style={{
                   flex: 1,
-                  height: "48px",
+                  height: "44px",
                   background: dietPreference === "veg" ? "var(--text-primary)" : "transparent",
                   color: dietPreference === "veg" ? "var(--bg-primary)" : "var(--text-primary)",
                   borderColor: dietPreference === "veg" ? "var(--text-primary)" : "var(--border-color)"
@@ -114,10 +116,10 @@ export default function Settings() {
               </button>
               <button
                 type="button"
-                className={`btn-premium-secondary ${dietPreference === "nonveg" ? "active" : ""}`}
+                className="btn-premium-secondary"
                 style={{
                   flex: 1,
-                  height: "48px",
+                  height: "44px",
                   background: dietPreference === "nonveg" ? "var(--text-primary)" : "transparent",
                   color: dietPreference === "nonveg" ? "var(--bg-primary)" : "var(--text-primary)",
                   borderColor: dietPreference === "nonveg" ? "var(--text-primary)" : "var(--border-color)"
@@ -141,53 +143,35 @@ export default function Settings() {
         </form>
       </div>
 
-      {/* Account Info Details */}
+      {/* Account Security & Sign Out */}
       <div className="nothing-card glow-white">
         <div className="nothing-card-header">
-          <span className="nothing-title">Security & Account</span>
+          <span className="nothing-title">
+            <ShieldCheck size={18} color="var(--accent-success)" /> Security & Session
+          </span>
           <span className="nothing-label">Firebase Auth info</span>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.85rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Account Type:</span>
-            {isAnonymous ? (
-              <span style={{ color: "var(--accent-orange)", display: "flex", alignItems: "center", gap: "4px" }}>
-                <ShieldAlert size={14} /> Guest (Anonymous)
-              </span>
-            ) : (
-              <span style={{ color: "var(--accent-success)", display: "flex", alignItems: "center", gap: "4px" }}>
-                <ShieldCheck size={14} /> Registered
-              </span>
-            )}
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+          <div style={{ padding: "12px 14px", background: "var(--bg-secondary)", borderRadius: "10px", border: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>Authentication Type</span>
+            <span style={{ fontWeight: "700", fontSize: "0.85rem", textTransform: "capitalize" }}>{isAnonymous ? "Guest Session" : "Email & Password"}</span>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Email Address:</span>
-            <span style={{ color: "var(--text-primary)" }}>
-              {currentUser?.email || "No Email linked"}
-            </span>
+          <div style={{ padding: "12px 14px", background: "var(--bg-secondary)", borderRadius: "10px", border: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>Account Email</span>
+            <span style={{ fontWeight: "700", fontSize: "0.85rem", fontFamily: "var(--font-mono)" }}>{currentUser?.email || "Guest User"}</span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid var(--border-color)", paddingTop: "12px" }}>
-            <span>Account ID:</span>
-            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", wordBreak: "break-all" }}>
-              {currentUser?.uid}
-            </span>
-          </div>
-        </div>
-
-        <div style={{ borderTop: "1px solid var(--border-color)", marginTop: "16px", paddingTop: "16px" }}>
           <button 
-            className="btn-premium-danger" 
-            style={{ width: "100%" }}
-            onClick={logout}
+            className="btn-premium-danger"
+            style={{ width: "100%", marginTop: "6px" }}
+            onClick={() => logout()}
           >
-            <LogOut size={16} /> Sign Out of Account
+            <LogOut size={18} /> Sign Out of Account
           </button>
         </div>
       </div>
     </motion.div>
   );
 }
-
