@@ -13,13 +13,14 @@ import FoodReference from "./components/FoodReference";
 import History from "./components/History";
 import Settings from "./components/Settings";
 import CommandPalette from "./components/CommandPalette";
+import InstallPWA from "./components/InstallPWA";
 
 import { Search, Bell, Sun, Moon } from "lucide-react";
 import "./App.css";
 
 function AppContent() {
-  const { currentUser } = useAuth();
-  const { loading: plannerLoading, onboarded, profile } = usePlanner();
+  const { currentUser, loading: authLoading } = useAuth();
+  const { loading: plannerLoading, onboarded } = usePlanner();
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -67,12 +68,39 @@ function AppContent() {
     return () => window.removeEventListener("keydown", handleGlobalKeys);
   }, [location.pathname]);
 
-  // Redirect to Auth if not logged in
-  if (!currentUser) {
-    return <Auth />;
+  // 1. Initial Firebase Auth Loading Screen (eliminates blank screen)
+  if (authLoading) {
+    return (
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        background: "var(--bg-primary)",
+        color: "var(--text-primary)"
+      }}>
+        <div style={{ fontFamily: "var(--font-dot)", fontSize: "2.4rem", marginBottom: "12px", textTransform: "uppercase", fontWeight: "900" }}>
+          WeGoGym
+        </div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-secondary)", letterSpacing: "1px" }}>
+          AUTHENTICATING SESSION...
+        </div>
+      </div>
+    );
   }
 
-  // Loading Screen while Firestore database syncs on startup
+  // 2. Redirect to Auth if not logged in
+  if (!currentUser) {
+    return (
+      <>
+        <Auth />
+        <InstallPWA />
+      </>
+    );
+  }
+
+  // 3. Loading Screen while Firestore database syncs on startup
   if (plannerLoading) {
     return (
       <div style={{
@@ -84,17 +112,17 @@ function AppContent() {
         background: "var(--bg-primary)",
         color: "var(--text-primary)"
       }}>
-        <div style={{ fontFamily: "var(--font-dot)", fontSize: "2.2rem", marginBottom: "12px", textTransform: "uppercase", fontWeight: "900" }}>
+        <div style={{ fontFamily: "var(--font-dot)", fontSize: "2.4rem", marginBottom: "12px", textTransform: "uppercase", fontWeight: "900" }}>
           WeGoGym
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-          Syncing with Cloud Firestore...
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-secondary)", letterSpacing: "1px" }}>
+          SYNCING WITH CLOUD FIRESTORE...
         </div>
       </div>
     );
   }
 
-  // Onboarding screen if user profile doesn't exist in Firestore
+  // 4. Onboarding screen if user profile doesn't exist in Firestore
   if (!onboarded) {
     return <Onboarding />;
   }
@@ -124,9 +152,6 @@ function AppContent() {
   const toggleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
-
-  const userName = profile?.name || "User";
-  const avatarLetter = userName.charAt(0).toUpperCase();
 
   return (
     <div className="app-shell">
@@ -159,7 +184,7 @@ function AppContent() {
             
             {/* Profile Avatar circle */}
             <div className="avatar-circle" onClick={() => navigate("/settings")} title="View settings">
-              {avatarLetter}
+              W
             </div>
           </div>
         </header>
@@ -183,6 +208,9 @@ function AppContent() {
 
       {/* Spotlight Global Search overlay command search dialog */}
       <CommandPalette isOpen={isPaletteOpen} onClose={() => setIsPaletteOpen(false)} />
+
+      {/* Floating PWA Custom Install Prompt Banner */}
+      <InstallPWA />
     </div>
   );
 }
