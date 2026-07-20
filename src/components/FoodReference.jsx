@@ -344,6 +344,54 @@ export default function FoodReference() {
     setBatchProcessing(false);
   };
 
+  // 1-Click Fetch Details for ALL existing Food Library items at once
+  const handleFetchAllExistingItems = async () => {
+    if (!foodReferences || foodReferences.length === 0) return;
+
+    setBatchProcessing(true);
+    setBatchResults(null);
+
+    const uid = currentUser ? currentUser.uid : null;
+    const itemsToFetch = foodReferences.map(f => ({
+      id: f.id,
+      foodName: f.foodName || f.name,
+      referenceQuantity: f.referenceQuantity || parseInt(f.serving) || 100,
+      referenceUnit: f.referenceUnit || "g"
+    }));
+
+    const results = await fetchNutritionBatchWithQueue(uid, itemsToFetch, (progress) => {
+      setBatchProgress(progress);
+    });
+
+    for (const res of results) {
+      if (res.id && !res.error) {
+        await editFoodRef(res.id, {
+          foodName: res.foodName,
+          name: res.foodName,
+          referenceQuantity: res.referenceQuantity,
+          referenceUnit: res.referenceUnit,
+          serving: `${res.referenceQuantity}${res.referenceUnit}`,
+          protein: res.protein,
+          fat: res.fat,
+          carbs: res.carbs,
+          fiber: res.fiber,
+          calories: res.calories,
+          foodType: res.foodType,
+          categoryTag: (res.foodType || "PROTEIN").toUpperCase(),
+          isVeg: !["meat", "seafood"].includes(res.foodType),
+          category: !["meat", "seafood"].includes(res.foodType) ? "veg" : "nonveg",
+          aiGenerated: res.source === "gemini_ai",
+          source: res.source || "gemini_ai",
+          confidence: res.confidence || 0.95,
+          verified: true
+        });
+      }
+    }
+
+    setBatchProcessing(false);
+    setBatchModalOpen(false);
+  };
+
   const handleSaveAllBatchResults = async () => {
     if (!batchResults || batchResults.length === 0) return;
     const itemsToSave = batchResults.map(item => {
@@ -705,69 +753,6 @@ export default function FoodReference() {
                 </div>
               )}
 
-              {/* Manual Macro Customization Controls Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>PROTEIN (g)</label>
-                  <input 
-                    type="number" 
-                    className="premium-inner-input" 
-                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
-                    value={protein}
-                    onChange={(e) => setProtein(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>FAT (g)</label>
-                  <input 
-                    type="number" 
-                    className="premium-inner-input" 
-                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
-                    value={fat}
-                    onChange={(e) => setFat(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>CARBS (g)</label>
-                  <input 
-                    type="number" 
-                    className="premium-inner-input" 
-                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
-                    value={carbs}
-                    onChange={(e) => setCarbs(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>FIBER (g)</label>
-                  <input 
-                    type="number" 
-                    className="premium-inner-input" 
-                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
-                    value={fiber}
-                    onChange={(e) => setFiber(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", gridColumn: "span 2" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>CALORIES (kcal)</label>
-                  <input 
-                    type="number" 
-                    className="premium-inner-input" 
-                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
-                    value={calories}
-                    onChange={(e) => setCalories(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
               {/* Diet Type Selection */}
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <label className="nothing-label" style={{ fontSize: "0.65rem" }}>DIET TYPE</label>
@@ -816,6 +801,28 @@ export default function FoodReference() {
                 </button>
               )}
             </div>
+
+            {/* 1-Click Fetch All Existing Food Library Items Button */}
+            {!batchResults && !batchProcessing && foodReferences && foodReferences.length > 0 && (
+              <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--accent-protein)", padding: "14px", borderRadius: "12px", marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+                <div>
+                  <div style={{ fontWeight: "800", fontSize: "0.9rem", color: "var(--text-primary)" }}>
+                    Fetch Nutrition for All Library Items ({foodReferences.length})
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                    Automatically fetch protein, fat, carbs, fiber & calories for all items in your library at once.
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  className="btn-premium-primary glow-white" 
+                  onClick={handleFetchAllExistingItems}
+                  style={{ height: "40px", padding: "0 18px", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+                >
+                  <Zap size={16} /> Fetch All {foodReferences.length} Items
+                </button>
+              </div>
+            )}
 
             {/* Step 1: Bulk Paste or Add Row Input */}
             {!batchResults && (

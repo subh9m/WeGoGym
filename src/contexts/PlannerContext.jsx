@@ -18,18 +18,18 @@ export function usePlanner() {
 }
 
 const INITIAL_FOOD_REF = [
-  { name: "Milk", serving: "500ml", protein: 16, category: "veg" },
-  { name: "Paneer", serving: "100g", protein: 20, category: "veg" },
-  { name: "Chicken Breast", serving: "150g", protein: 40, category: "nonveg" },
-  { name: "Eggs (3)", serving: "3 Eggs", protein: 18, category: "nonveg" },
-  { name: "Soya Chunks", serving: "50g", protein: 26, category: "veg" },
-  { name: "Oats", serving: "50g", protein: 8, category: "veg" },
-  { name: "Peanut Butter", serving: "60g", protein: 15, category: "veg" },
-  { name: "Banana (3)", serving: "3 Bananas", protein: 3, category: "veg" },
-  { name: "Dal", serving: "1 Bowl", protein: 10, category: "veg" },
-  { name: "Rajma", serving: "1 Bowl", protein: 10, category: "veg" },
-  { name: "White Chana", serving: "1 Bowl", protein: 11, category: "veg" },
-  { name: "Greek Yogurt", serving: "200g", protein: 20, category: "veg" }
+  { name: "Milk", foodName: "Milk", serving: "500ml", referenceQuantity: 500, referenceUnit: "ml", protein: 16, fat: 15, carbs: 24, fiber: 0, calories: 295, foodType: "dairy", categoryTag: "DAIRY", category: "veg", isVeg: true },
+  { name: "Paneer", foodName: "Paneer", serving: "100g", referenceQuantity: 100, referenceUnit: "g", protein: 20, fat: 22, carbs: 4, fiber: 0, calories: 294, foodType: "dairy", categoryTag: "DAIRY", category: "veg", isVeg: true },
+  { name: "Chicken Breast", foodName: "Chicken Breast", serving: "150g", referenceQuantity: 150, referenceUnit: "g", protein: 46, fat: 5, carbs: 0, fiber: 0, calories: 248, foodType: "meat", categoryTag: "MEAT", category: "nonveg", isVeg: false },
+  { name: "Eggs (3)", foodName: "Eggs (3)", serving: "3 Eggs", referenceQuantity: 3, referenceUnit: "piece", protein: 18, fat: 15, carbs: 2, fiber: 0, calories: 215, foodType: "meat", categoryTag: "PROTEIN", category: "nonveg", isVeg: false },
+  { name: "Soya Chunks", foodName: "Soya Chunks", serving: "50g", referenceQuantity: 50, referenceUnit: "g", protein: 26, fat: 1, carbs: 17, fiber: 6, calories: 172, foodType: "legumes", categoryTag: "HIGH PROTEIN", category: "veg", isVeg: true },
+  { name: "Oats", foodName: "Oats", serving: "50g", referenceQuantity: 50, referenceUnit: "g", protein: 8, fat: 4, carbs: 33, fiber: 5, calories: 194, foodType: "grain", categoryTag: "GRAINS", category: "veg", isVeg: true },
+  { name: "Peanut Butter", foodName: "Peanut Butter", serving: "60g", referenceQuantity: 60, referenceUnit: "g", protein: 15, fat: 30, carbs: 12, fiber: 4, calories: 354, foodType: "nuts", categoryTag: "NUTS", category: "veg", isVeg: true },
+  { name: "Banana (3)", foodName: "Banana (3)", serving: "3 Bananas", referenceQuantity: 3, referenceUnit: "piece", protein: 4, fat: 1, carbs: 80, fiber: 9, calories: 315, foodType: "fruit", categoryTag: "FRUITS", category: "veg", isVeg: true },
+  { name: "Dal", foodName: "Dal", serving: "1 Bowl", referenceQuantity: 200, referenceUnit: "g", protein: 12, fat: 4, carbs: 28, fiber: 8, calories: 196, foodType: "legumes", categoryTag: "VEGETARIAN", category: "veg", isVeg: true },
+  { name: "Rajma", foodName: "Rajma", serving: "1 Bowl", referenceQuantity: 200, referenceUnit: "g", protein: 15, fat: 3, carbs: 38, fiber: 12, calories: 239, foodType: "legumes", categoryTag: "VEGETARIAN", category: "veg", isVeg: true },
+  { name: "White Chana", foodName: "White Chana", serving: "1 Bowl", referenceQuantity: 200, referenceUnit: "g", protein: 14, fat: 5, carbs: 44, fiber: 12, calories: 277, foodType: "legumes", categoryTag: "GRAINS", category: "veg", isVeg: true },
+  { name: "Greek Yogurt", foodName: "Greek Yogurt", serving: "200g", referenceQuantity: 200, referenceUnit: "g", protein: 20, fat: 1, carbs: 8, fiber: 0, calories: 121, foodType: "dairy", categoryTag: "DAIRY", category: "veg", isVeg: true }
 ];
 
 const DEFAULT_WORKOUT_STRUCTURES = {
