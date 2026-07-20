@@ -693,15 +693,32 @@ export function PlannerProvider({ children }) {
   // ==========================================
   // Global Rest Timer Handles
   // ==========================================
+  const selectRestDuration = (seconds) => {
+    const sec = parseInt(seconds) || 90;
+    setRestInitial(sec);
+    setRestSeconds(sec);
+    setRestActive(false);
+
+    const cache = {
+      secondsRemaining: sec,
+      isActive: false,
+      initialSeconds: sec,
+      lastUpdated: Date.now()
+    };
+    localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
+  };
+
   const startRest = (seconds) => {
-    setRestInitial(seconds);
-    setRestSeconds(seconds);
+    if (seconds) {
+      selectRestDuration(seconds);
+    }
+    if (restSeconds <= 0 && !seconds) return;
     setRestActive(true);
 
     const cache = {
-      secondsRemaining: seconds,
+      secondsRemaining: seconds || restSeconds,
       isActive: true,
-      initialSeconds: seconds,
+      initialSeconds: seconds || restInitial,
       lastUpdated: Date.now()
     };
     localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
@@ -731,9 +748,16 @@ export function PlannerProvider({ children }) {
   };
 
   const resetRest = () => {
-    setRestSeconds(0);
+    const resetVal = restInitial || 90;
+    setRestSeconds(resetVal);
     setRestActive(false);
-    localStorage.removeItem("wegogym_rest_timer");
+    const cache = {
+      secondsRemaining: resetVal,
+      isActive: false,
+      initialSeconds: resetVal,
+      lastUpdated: Date.now()
+    };
+    localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
   };
 
   // ==========================================
@@ -970,6 +994,7 @@ export function PlannerProvider({ children }) {
     restSeconds,
     restActive,
     restInitial,
+    selectRestDuration,
     startRest,
     pauseRest,
     resumeRest,

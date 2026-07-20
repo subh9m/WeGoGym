@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
 import { motion } from "framer-motion";
 import { 
@@ -11,14 +11,22 @@ import {
   CheckCircle2,
   Zap,
   ChevronRight,
-  Trash2
+  Trash2,
+  Utensils,
+  Award,
+  Sparkles,
+  Info
 } from "lucide-react";
 
 export default function History() {
-  const { history, profile, deleteHistoryLog } = usePlanner();
+  const { history, diets, profile, deleteHistoryLog } = usePlanner();
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-  const [drawerLog, setDrawerLog] = useState(null);
+  
+  // Selected Day Details for Drawer (Desktop) & Bottom Sheet (Mobile)
+  const [selectedDayDetails, setSelectedDayDetails] = useState(null);
   const [yearOptions, setYearOptions] = useState([]);
+
+  const proteinTarget = profile?.proteinTarget || 100;
 
   useEffect(() => {
     const yearsSet = new Set([new Date().getFullYear()]);
@@ -30,6 +38,83 @@ export default function History() {
     });
     setYearOptions([...yearsSet].sort((a,b) => b - a));
   }, [history]);
+
+  // Helper to format date string YYYY-MM-DD
+  const getFormattedDate = (dateObj) => {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Generate 52 Weeks (364 Days) Heatmap Grid Data up to today
+  const heatmapDays = useMemo(() => {
+    const days = [];
+    const today = new Date();
+    
+    // Create map of history logs keyed by YYYY-MM-DD
+    const historyMap = {};
+    (history || []).forEach((log) => {
+      if (log.date) {
+        historyMap[log.date] = log;
+      }
+    });
+
+    // Generate last 364 days
+    for (let i = 363; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const dateStr = getFormattedDate(d);
+      
+      const dayOfWeek = d.getDay(); // 0 = Sun, 1 = Mon...
+      const dayKey = dayOfWeek === 0 ? "day7" : `day${dayOfWeek}`;
+      
+      const historyLog = historyMap[dateStr] || null;
+      const dayDiet = diets[dateStr] || diets[dayKey] || null;
+
+      // Calculate total protein consumed for that date
+      let proteinVal = 0;
+      let mealsList = { breakfast: [], lunch: [], snacks: [], dinner: [] };
+      if (dayDiet && dayDiet.meals) {
+        mealsList = dayDiet.meals;
+        Object.keys(dayDiet.meals).forEach((mKey) => {
+          (dayDiet.meals[mKey] || []).forEach((item) => {
+            proteinVal += (parseInt(item.proteinPerServing ?? item.protein) || 0) * (parseInt(item.quantity) || 1);
+          });
+        });
+      }
+
+      const hasWorkout = Boolean(historyLog);
+      const isProteinGoalMet = proteinVal >= proteinTarget;
+      const hasPR = Boolean(historyLog?.prsAchieved?.length > 0);
+
+      // Determine 5-Level Dynamic Heatmap Color
+      let level = "level-0"; // No Activity
+      if (hasWorkout && isProteinGoalMet && hasPR) {
+        level = "level-gold"; // Gold Highlight (Workout + Protein + PR)
+      } else if (hasWorkout && isProteinGoalMet) {
+        level = "level-both"; // Bright Purple (Workout + Protein)
+      } else if (hasWorkout && !isProteinGoalMet) {
+        level = "level-workout"; // Green Glow (Workout Only)
+      } else if (!hasWorkout && isProteinGoalMet) {
+        level = "level-protein"; // Blue Glow (Protein Only)
+      }
+
+      days.push({
+        dateObj: d,
+        dateStr,
+        dayKey,
+        historyLog,
+        mealsList,
+        proteinVal,
+        isProteinGoalMet,
+        hasWorkout,
+        hasPR,
+        level
+      });
+    }
+
+    return days;
+  }, [history, diets, proteinTarget]);
 
   const getSessionVolume = (exercises) => {
     return (exercises || []).reduce((acc, ex) => {
@@ -43,9 +128,12 @@ export default function History() {
 
   const formatReadableDate = (dateStr) => {
     if (!dateStr) return "";
-    const [y, m, d] = dateStr.split("-");
+    const parts = dateStr.split("-");
+    if (parts.length < 3) return dateStr;
+    const [y, m, d] = parts;
     const dateObj = new Date(y, m - 1, d);
     return dateObj.toLocaleDateString("en-US", {
+      weekday: "short",
       day: "numeric",
       month: "short",
       year: "numeric"
@@ -55,7 +143,7 @@ export default function History() {
   const handleDeleteLog = async (logId) => {
     if (window.confirm("Are you sure you want to delete this workout history record?")) {
       await deleteHistoryLog(logId);
-      setDrawerLog(null);
+      setSelectedDayDetails(null);
     }
   };
 
@@ -135,6 +223,90 @@ export default function History() {
         </div>
       </div>
 
+      {/* GitHub / LeetCode Style Interactive Contribution Heatmap */}
+      <div className="nothing-card glow-white">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+          <div>
+            <span className="nothing-title" style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Activity size={18} color="var(--accent-push)" /> Fitness Contribution Heatmap
+            </span>
+            <span className="nothing-label" style={{ fontSize: "0.7rem", marginTop: "2px" }}>
+              Tap any day to inspect full workout & nutrition breakdown
+            </span>
+          </div>
+
+          {/* Color Legend Badges */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontSize: "0.7rem", color: "var(--text-secondary)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "var(--bg-secondary)", border: "1px solid var(--border-color)" }} />
+              <span>None</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#22c55e" }} />
+              <span>Workout</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#3b82f6" }} />
+              <span>Protein</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#a855f7" }} />
+              <span>Both</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#f59e0b", boxShadow: "0 0 6px rgba(245,158,11,0.8)" }} />
+              <span>PR Day</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Heatmap Grid Wrapper */}
+        <div style={{ overflowX: "auto", paddingBottom: "8px" }}>
+          <div className="contribution-grid-container" style={{ minWidth: "720px", display: "grid", gridTemplateColumns: "repeat(52, 1fr)", gap: "4px" }}>
+            {heatmapDays.map((dayItem, idx) => {
+              let bgStyle = "var(--bg-secondary)";
+              let borderStyle = "1px solid var(--border-color)";
+              let boxShadow = "none";
+
+              if (dayItem.level === "level-gold") {
+                bgStyle = "#f59e0b";
+                borderStyle = "1px solid #f59e0b";
+                boxShadow = "0 0 8px rgba(245, 158, 11, 0.7)";
+              } else if (dayItem.level === "level-both") {
+                bgStyle = "#a855f7";
+                borderStyle = "1px solid #a855f7";
+                boxShadow = "0 0 6px rgba(168, 85, 247, 0.4)";
+              } else if (dayItem.level === "level-workout") {
+                bgStyle = "#22c55e";
+                borderStyle = "1px solid #22c55e";
+              } else if (dayItem.level === "level-protein") {
+                bgStyle = "#3b82f6";
+                borderStyle = "1px solid #3b82f6";
+              }
+
+              return (
+                <div
+                  key={idx}
+                  title={`${dayItem.dateStr}: ${dayItem.hasWorkout ? dayItem.historyLog.dayName : "No Workout"}, ${dayItem.proteinVal}g Protein`}
+                  onClick={() => setSelectedDayDetails(dayItem)}
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "3px",
+                    background: bgStyle,
+                    border: borderStyle,
+                    boxShadow: boxShadow,
+                    cursor: "pointer",
+                    transition: "transform 0.15s ease"
+                  }}
+                  className="heatmap-cell-hover"
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Automated History Logs List */}
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <div className="nothing-card-header">
@@ -154,7 +326,17 @@ export default function History() {
                   className="nothing-card glow-white"
                   style={{ cursor: "pointer", padding: "16px 20px" }}
                   whileHover={{ x: 4 }}
-                  onClick={() => setDrawerLog(log)}
+                  onClick={() => {
+                    setSelectedDayDetails({
+                      dateStr: log.date,
+                      historyLog: log,
+                      mealsList: diets[log.date]?.meals || { breakfast: [], lunch: [], snacks: [], dinner: [] },
+                      proteinVal: 0,
+                      isProteinGoalMet: false,
+                      hasWorkout: true,
+                      hasPR: Boolean(log.prsAchieved?.length)
+                    });
+                  }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
@@ -198,128 +380,207 @@ export default function History() {
         )}
       </div>
 
-      {/* Slide-Over Right Drawer Panel with Per-Set Breakdown */}
-      {drawerLog && (
-        <div className="drawer-overlay" onClick={() => setDrawerLog(null)}>
+      {/* Slide-Over Right Drawer Panel (Desktop) & Bottom Sheet (Mobile) */}
+      {selectedDayDetails && (
+        <div className="drawer-overlay" onClick={() => setSelectedDayDetails(null)}>
           <div className="right-drawer-panel" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
               <div>
-                <h3 className="nothing-title" style={{ fontSize: "1.2rem" }}>{drawerLog.dayName} Workout Details</h3>
-                <span className="nothing-label">{formatReadableDate(drawerLog.date)} • {drawerLog.startTime || ""}</span>
+                <h3 className="nothing-title" style={{ fontSize: "1.2rem" }}>
+                  {formatReadableDate(selectedDayDetails.dateStr)} Summary
+                </h3>
+                <span className="nothing-label">
+                  {selectedDayDetails.hasWorkout ? `✓ ${selectedDayDetails.historyLog.dayName} Workout` : "No Workout Recorded"}
+                </span>
               </div>
               
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <button 
-                  className="icon-action-btn delete-btn" 
-                  onClick={() => handleDeleteLog(drawerLog.id)}
-                  title="Delete History Log"
-                  style={{ width: "32px", height: "32px" }}
-                >
-                  <Trash2 size={14} />
-                </button>
+                {selectedDayDetails.historyLog && (
+                  <button 
+                    className="icon-action-btn delete-btn" 
+                    onClick={() => handleDeleteLog(selectedDayDetails.historyLog.id)}
+                    title="Delete History Log"
+                    style={{ width: "32px", height: "32px" }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
                 
-                <button className="header-action-btn" onClick={() => setDrawerLog(null)}>
+                <button className="header-action-btn" onClick={() => setSelectedDayDetails(null)}>
                   <X size={18} />
                 </button>
               </div>
             </div>
 
             <div className="drawer-body" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-              {/* 4 Summary Stat Widgets */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
-                <div className="metric-card">
-                  <span className="nothing-label" style={{ fontSize: "0.6rem" }}>DURATION</span>
-                  <div className="metric-value" style={{ fontSize: "1.2rem" }}>{drawerLog.durationMinutes} mins</div>
-                </div>
+              {/* 🏋️ SECTION 1: WORKOUT DETAILS */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <span className="nothing-label" style={{ fontSize: "0.75rem", color: "var(--accent-push)", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Dumbbell size={15} /> WORKOUT SUMMARY & DETAILS
+                </span>
 
-                <div className="metric-card">
-                  <span className="nothing-label" style={{ fontSize: "0.6rem" }}>TOTAL VOLUME</span>
-                  <div className="metric-value" style={{ fontSize: "1.2rem", color: "var(--accent-push)" }}>
-                    {drawerLog.totalVolume || getSessionVolume(drawerLog.exercises || [])}kg
-                  </div>
-                </div>
-
-                <div className="metric-card">
-                  <span className="nothing-label" style={{ fontSize: "0.6rem" }}>EST. CALORIES</span>
-                  <div className="metric-value" style={{ fontSize: "1.2rem", color: "var(--accent-abs)" }}>
-                    {drawerLog.estimatedCalories || 0} kcal
-                  </div>
-                </div>
-
-                <div className="metric-card">
-                  <span className="nothing-label" style={{ fontSize: "0.6rem" }}>COMPLETED SETS</span>
-                  <div className="metric-value" style={{ fontSize: "1.2rem", color: "var(--accent-legs)" }}>
-                    {drawerLog.completedSets || 0} sets
-                  </div>
-                </div>
-              </div>
-
-              {/* PRs Achieved Badge Alert */}
-              {drawerLog.prsAchieved && drawerLog.prsAchieved.length > 0 && (
-                <div style={{ background: "rgba(236, 72, 153, 0.1)", border: "1px solid var(--accent-pr)", padding: "12px 14px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
-                  <Trophy size={18} color="var(--accent-pr)" />
-                  <div style={{ fontSize: "0.85rem", color: "var(--text-primary)", fontWeight: "600" }}>
-                    Personal Records Unlocked: <strong style={{ color: "var(--accent-pr)" }}>{drawerLog.prsAchieved.join(", ")}</strong>
-                  </div>
-                </div>
-              )}
-
-              {/* Detailed Exercises & Per-Set Tables */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <span className="nothing-label" style={{ fontSize: "0.75rem" }}>PER-SET LOGGING BREAKDOWN</span>
-
-                {(drawerLog.exercises || []).map((ex, exIdx) => {
-                  const setsList = Array.isArray(ex.setsList) && ex.setsList.length > 0 
-                    ? ex.setsList 
-                    : Array.from({ length: ex.sets || 3 }).map((_, i) => ({ setNum: i + 1, weight: ex.weight || 0, reps: ex.reps || 0, completed: ex.completed }));
-
-                  return (
-                    <div key={exIdx} style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", borderRadius: "14px", padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span style={{ fontWeight: "800", fontSize: "0.95rem" }}>{ex.name}</span>
-                          <span className={`exercise-badge-muscle muscle-${ex.muscle || "push"}`} style={{ fontSize: "0.6rem" }}>
-                            {ex.muscle || "General"}
-                          </span>
-                        </div>
-                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "700" }}>
-                          Vol: {ex.volume || 0}kg
-                        </span>
+                {selectedDayDetails.hasWorkout ? (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
+                      <div className="metric-card">
+                        <span className="nothing-label" style={{ fontSize: "0.6rem" }}>DURATION</span>
+                        <div className="metric-value" style={{ fontSize: "1.1rem" }}>{selectedDayDetails.historyLog.durationMinutes} mins</div>
                       </div>
 
-                      <div style={{ border: "1px solid var(--border-color)", borderRadius: "10px", overflow: "hidden" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
-                          <thead>
-                            <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-color)", color: "var(--text-muted)", fontSize: "0.65rem", fontFamily: "var(--font-mono)" }}>
-                              <th style={{ padding: "8px 12px", textAlign: "left" }}>SET #</th>
-                              <th style={{ padding: "8px 12px", textAlign: "right" }}>WEIGHT</th>
-                              <th style={{ padding: "8px 12px", textAlign: "right" }}>REPS</th>
-                              <th style={{ padding: "8px 12px", textAlign: "center" }}>STATUS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {setsList.map((s, sIdx) => (
-                              <tr key={sIdx} style={{ borderBottom: sIdx < setsList.length - 1 ? "1px solid var(--border-color)" : "none", background: s.completed ? "rgba(34, 197, 94, 0.05)" : "transparent" }}>
-                                <td style={{ padding: "8px 12px", fontWeight: "700", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                                  Set {s.setNum || sIdx + 1}
-                                </td>
-                                <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{s.weight} kg</td>
-                                <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{s.reps}</td>
-                                <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                                  {s.completed ? (
-                                    <CheckCircle2 size={14} color="var(--accent-success)" style={{ margin: "0 auto" }} />
-                                  ) : (
-                                    <span style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>—</span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="metric-card">
+                        <span className="nothing-label" style={{ fontSize: "0.6rem" }}>TOTAL VOLUME</span>
+                        <div className="metric-value" style={{ fontSize: "1.1rem", color: "var(--accent-push)" }}>
+                          {selectedDayDetails.historyLog.totalVolume || getSessionVolume(selectedDayDetails.historyLog.exercises || [])}kg
+                        </div>
+                      </div>
+
+                      <div className="metric-card">
+                        <span className="nothing-label" style={{ fontSize: "0.6rem" }}>EST. CALORIES</span>
+                        <div className="metric-value" style={{ fontSize: "1.1rem", color: "var(--accent-abs)" }}>
+                          {selectedDayDetails.historyLog.estimatedCalories || 0} kcal
+                        </div>
+                      </div>
+
+                      <div className="metric-card">
+                        <span className="nothing-label" style={{ fontSize: "0.6rem" }}>SETS COMPLETED</span>
+                        <div className="metric-value" style={{ fontSize: "1.1rem", color: "var(--accent-legs)" }}>
+                          {selectedDayDetails.historyLog.completedSets || 0} sets
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {/* PRs Achieved Badge Alert */}
+                    {selectedDayDetails.historyLog.prsAchieved && selectedDayDetails.historyLog.prsAchieved.length > 0 && (
+                      <div style={{ background: "rgba(236, 72, 153, 0.1)", border: "1px solid var(--accent-pr)", padding: "12px 14px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
+                        <Trophy size={18} color="var(--accent-pr)" />
+                        <div style={{ fontSize: "0.85rem", color: "var(--text-primary)", fontWeight: "600" }}>
+                          Personal Records Unlocked: <strong style={{ color: "var(--accent-pr)" }}>{selectedDayDetails.historyLog.prsAchieved.join(", ")}</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Exercises List Breakdown */}
+                    {(selectedDayDetails.historyLog.exercises || []).map((ex, exIdx) => {
+                      const setsList = Array.isArray(ex.setsList) && ex.setsList.length > 0 
+                        ? ex.setsList 
+                        : Array.from({ length: ex.sets || 3 }).map((_, i) => ({ setNum: i + 1, weight: ex.weight || 0, reps: ex.reps || 0, completed: ex.completed }));
+
+                      return (
+                        <div key={exIdx} style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", borderRadius: "14px", padding: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontWeight: "800", fontSize: "0.95rem" }}>{ex.name}</span>
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "700" }}>
+                              Vol: {ex.volume || 0}kg
+                            </span>
+                          </div>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
+                            {setsList.map((s, sIdx) => (
+                              <div key={sIdx} style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)", display: "flex", justifyContent: "space-between" }}>
+                                <span>• Set {s.setNum || sIdx + 1} : <strong style={{ color: "var(--text-primary)" }}>{s.weight}kg × {s.reps}</strong></span>
+                                {s.completed && <span style={{ color: "var(--accent-success)", fontWeight: "700" }}>✓</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="nothing-card" style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>
+                    No workout recorded for this date.
+                  </div>
+                )}
+              </div>
+
+              {/* 🥗 SECTION 2: NUTRITION SUMMARY */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", borderTop: "1px solid var(--border-color)", paddingTop: "16px" }}>
+                <span className="nothing-label" style={{ fontSize: "0.75rem", color: "var(--accent-protein)", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Utensils size={15} /> NUTRITION SUMMARY
+                </span>
+
+                <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "14px", borderRadius: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span className="nothing-label" style={{ fontSize: "0.7rem" }}>Daily Protein Target</span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: "800", color: selectedDayDetails.isProteinGoalMet ? "var(--accent-success)" : "var(--accent-protein)", fontSize: "0.95rem" }}>
+                      {selectedDayDetails.proteinVal}g / {proteinTarget}g
+                    </span>
+                  </div>
+
+                  <div style={{ width: "100%", background: "var(--bg-card)", height: "8px", borderRadius: "4px", overflow: "hidden" }}>
+                    <div 
+                      style={{ 
+                        width: `${Math.min(100, Math.round((selectedDayDetails.proteinVal / proteinTarget) * 100))}%`, 
+                        height: "100%", 
+                        background: selectedDayDetails.isProteinGoalMet ? "var(--accent-success)" : "var(--accent-protein)",
+                        transition: "width 0.3s ease" 
+                      }} 
+                    />
+                  </div>
+                </div>
+
+                {/* Meal Breakdown List */}
+                {Object.keys(selectedDayDetails.mealsList || {}).some(k => (selectedDayDetails.mealsList[k] || []).length > 0) ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {Object.entries(selectedDayDetails.mealsList).map(([mealKey, itemsList]) => {
+                      if (!itemsList || itemsList.length === 0) return null;
+                      return (
+                        <div key={mealKey} style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: "12px", padding: "12px" }}>
+                          <span style={{ fontSize: "0.8rem", fontWeight: "800", textTransform: "capitalize", color: "var(--text-primary)", display: "block", marginBottom: "6px" }}>
+                            {mealKey}
+                          </span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            {itemsList.map((fItem, fIdx) => (
+                              <div key={fIdx} style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "flex", justifyContent: "space-between" }}>
+                                <span>- {fItem.foodName || fItem.name} ({fItem.quantity || 1}x)</span>
+                                <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "var(--accent-protein)" }}>
+                                  {(parseInt(fItem.proteinPerServing ?? fItem.protein) || 0) * (parseInt(fItem.quantity) || 1)}g
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="nothing-card" style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>
+                    No meals logged for this date.
+                  </div>
+                )}
+              </div>
+
+              {/* 🏆 SECTION 3: ACHIEVEMENTS FOOTER */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid var(--border-color)", paddingTop: "16px" }}>
+                <span className="nothing-label" style={{ fontSize: "0.75rem", color: "var(--accent-abs)", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Award size={15} /> DAILY ACHIEVEMENTS
+                </span>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+                  <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "10px", borderRadius: "12px", textAlign: "center" }}>
+                    <Trophy size={16} color="var(--accent-pr)" style={{ margin: "0 auto 4px" }} />
+                    <span className="nothing-label" style={{ fontSize: "0.55rem" }}>NEW PR</span>
+                    <div style={{ fontSize: "0.75rem", fontWeight: "800", marginTop: "2px" }}>
+                      {selectedDayDetails.hasPR ? "YES 🎉" : "NONE"}
+                    </div>
+                  </div>
+
+                  <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "10px", borderRadius: "12px", textAlign: "center" }}>
+                    <Flame size={16} color="var(--accent-abs)" style={{ margin: "0 auto 4px" }} />
+                    <span className="nothing-label" style={{ fontSize: "0.55rem" }}>STREAK</span>
+                    <div style={{ fontSize: "0.75rem", fontWeight: "800", marginTop: "2px" }}>
+                      {currentStreak} Days
+                    </div>
+                  </div>
+
+                  <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "10px", borderRadius: "12px", textAlign: "center" }}>
+                    <Sparkles size={16} color="var(--accent-push)" style={{ margin: "0 auto 4px" }} />
+                    <span className="nothing-label" style={{ fontSize: "0.55rem" }}>VOLUME</span>
+                    <div style={{ fontSize: "0.75rem", fontWeight: "800", marginTop: "2px", fontFamily: "var(--font-mono)" }}>
+                      {selectedDayDetails.hasWorkout ? `${selectedDayDetails.historyLog.totalVolume || 0}kg` : "0kg"}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

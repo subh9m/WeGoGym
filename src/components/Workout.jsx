@@ -51,6 +51,7 @@ export default function Workout() {
     restSeconds,
     restActive,
     restInitial,
+    selectRestDuration,
     startRest,
     pauseRest,
     resumeRest,
@@ -356,20 +357,20 @@ export default function Workout() {
               <div className="rest-time-text">{restSeconds}s</div>
             </div>
 
-            {/* Rest Presets (30s, 60s, 90s, 120s, 180s) */}
+            {/* Rest Presets (30s, 60s, 90s, 120s, 180s) - Selects Duration Only */}
             <div className="rest-quick-pills" style={{ flexWrap: "wrap", gap: "6px" }}>
-              <button className="rest-pill-btn" onClick={() => startRest(30)}>30s</button>
-              <button className="rest-pill-btn" onClick={() => startRest(60)}>60s</button>
-              <button className="rest-pill-btn" onClick={() => startRest(90)}>90s</button>
-              <button className="rest-pill-btn" onClick={() => startRest(120)}>120s</button>
-              <button className="rest-pill-btn" onClick={() => startRest(180)}>180s</button>
+              <button className={`rest-pill-btn ${restInitial === 30 ? "active" : ""}`} onClick={() => selectRestDuration(30)}>30s</button>
+              <button className={`rest-pill-btn ${restInitial === 60 ? "active" : ""}`} onClick={() => selectRestDuration(60)}>60s</button>
+              <button className={`rest-pill-btn ${restInitial === 90 ? "active" : ""}`} onClick={() => selectRestDuration(90)}>90s</button>
+              <button className={`rest-pill-btn ${restInitial === 120 ? "active" : ""}`} onClick={() => selectRestDuration(120)}>120s</button>
+              <button className={`rest-pill-btn ${restInitial === 180 ? "active" : ""}`} onClick={() => selectRestDuration(180)}>180s</button>
             </div>
 
             <div className="rest-controls-row">
               {restActive ? (
                 <button className="rest-ctrl-icon-btn" onClick={pauseRest} title="Pause rest"><Pause size={16} /></button>
               ) : (
-                <button className="rest-ctrl-icon-btn" onClick={resumeRest} title="Resume rest"><Play size={16} /></button>
+                <button className="rest-ctrl-icon-btn" onClick={() => startRest()} title="Start rest countdown"><Play size={16} /></button>
               )}
               <button className="rest-ctrl-icon-btn" onClick={resetRest} title="Reset rest"><RotateCcw size={16} /></button>
             </div>
