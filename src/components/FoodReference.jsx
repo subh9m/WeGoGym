@@ -104,17 +104,21 @@ export default function FoodReference() {
     return vegKeywords.some(kw => nameLower.includes(kw));
   };
 
+  // Base reference nutrition state for real-time scaling
+  const [baseNutrition, setBaseNutrition] = useState(null);
+
   const handleOpenAdd = () => {
     setIsEditing(false);
     setEditingId(null);
+    setBaseNutrition(null);
     setFoodName("");
     setRefQuantity(100);
     setRefUnit("g");
-    setProtein(20);
-    setFat(2);
-    setCarbs(5);
-    setFiber(1);
-    setCalories(120);
+    setProtein(0);
+    setFat(0);
+    setCarbs(0);
+    setFiber(0);
+    setCalories(0);
     setFoodType("protein");
     setIsVegOption(true);
     setAiPreview(null);
@@ -126,8 +130,18 @@ export default function FoodReference() {
     e.stopPropagation();
     setIsEditing(true);
     setEditingId(food.id);
+    const refQ = food.referenceQuantity || parseInt(food.serving) || 100;
+    setBaseNutrition({
+      foodName: (food.foodName || food.name || "").trim().toLowerCase(),
+      protein: food.protein || 0,
+      fat: food.fat || 0,
+      carbs: food.carbs || 0,
+      fiber: food.fiber || 0,
+      calories: food.calories || Math.round((food.protein || 0) * 4),
+      quantity: refQ
+    });
     setFoodName(food.foodName || food.name);
-    setRefQuantity(food.referenceQuantity || parseInt(food.serving) || 100);
+    setRefQuantity(refQ);
     setRefUnit(food.referenceUnit || "g");
     setProtein(food.protein || 0);
     setFat(food.fat || 0);
@@ -141,20 +155,49 @@ export default function FoodReference() {
     setModalOpen(true);
   };
 
+  // Real-time calculation when user changes reference quantity
+  const handleRefQuantityChange = (newVal) => {
+    const newQty = Math.max(1, parseInt(newVal) || 1);
+    setRefQuantity(newQty);
+
+    if (baseNutrition && baseNutrition.quantity > 0) {
+      const scale = newQty / baseNutrition.quantity;
+      setProtein(Math.round(baseNutrition.protein * scale));
+      setFat(Math.round(baseNutrition.fat * scale));
+      setCarbs(Math.round(baseNutrition.carbs * scale));
+      setFiber(Math.round(baseNutrition.fiber * scale));
+      setCalories(Math.round(baseNutrition.calories * scale));
+    }
+  };
+
   // Single Item: Fetch Details Handler
-  const handleFetchDetails = async () => {
-    if (!foodName.trim()) {
+  const handleFetchDetails = async (overrideName, overrideQty, overrideUnit) => {
+    const targetName = (overrideName !== undefined ? overrideName : foodName).trim();
+    const targetQty = Number(overrideQty !== undefined ? overrideQty : refQuantity) || 100;
+    const targetUnit = overrideUnit || refUnit;
+
+    if (!targetName) {
       setAiError("Please enter a food name first.");
       return;
     }
 
     setAiError("");
     setIsAnalyzing(true);
-    setAiPreview(null);
 
     try {
       const uid = currentUser ? currentUser.uid : null;
-      const result = await fetchNutritionDetails(uid, foodName, refQuantity, refUnit);
+      const result = await fetchNutritionDetails(uid, targetName, targetQty, targetUnit);
+
+      const refQ = Number(result.referenceQuantity) || targetQty;
+      setBaseNutrition({
+        foodName: targetName.toLowerCase(),
+        protein: result.protein,
+        fat: result.fat,
+        carbs: result.carbs,
+        fiber: result.fiber,
+        calories: result.calories,
+        quantity: refQ
+      });
 
       setProtein(result.protein);
       setFat(result.fat);
@@ -164,7 +207,6 @@ export default function FoodReference() {
       setFoodType(result.foodType || "protein");
       setAiPreview(result);
 
-      // Auto set veg option based on food type
       if (["meat", "seafood"].includes(result.foodType)) {
         setIsVegOption(false);
       }
@@ -173,6 +215,14 @@ export default function FoodReference() {
       setAiError(err.message || "Unable to fetch nutrition details.");
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  // Auto-fetch details on foodName blur
+  const handleFoodNameBlur = () => {
+    if (!foodName.trim() || foodName.trim().length < 2) return;
+    if (!baseNutrition || baseNutrition.foodName !== foodName.trim().toLowerCase()) {
+      handleFetchDetails(foodName, refQuantity, refUnit);
     }
   };
 
@@ -550,6 +600,7 @@ export default function FoodReference() {
                     placeholder="e.g. Chicken Breast, Paneer, Milk, Oats"
                     value={foodName}
                     onChange={(e) => setFoodName(e.target.value)}
+                    onBlur={handleFoodNameBlur}
                     required
                   />
                 </div>
@@ -565,7 +616,7 @@ export default function FoodReference() {
                       className="premium-inner-input" 
                       placeholder="100"
                       value={refQuantity}
-                      onChange={(e) => setRefQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => handleRefQuantityChange(e.target.value)}
                       required
                     />
                   </div>
