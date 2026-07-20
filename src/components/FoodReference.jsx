@@ -237,11 +237,10 @@ export default function FoodReference() {
     setPendingBatchFoods(updated);
   };
 
-  const handleParseBatchText = () => {
-    if (!batchInputText.trim()) return;
-    const lines = batchInputText.split("\n").map(l => l.trim()).filter(Boolean);
-    const parsed = lines.map(line => {
-      // Check if line contains qty/unit e.g. "Chicken Breast 150g" or "Oats 50g"
+  const parseTextToFoods = (text) => {
+    if (!text || !text.trim()) return [];
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    return lines.map(line => {
       const match = line.match(/^(.+?)\s+(\d+)\s*(g|ml|piece|cup|oz|tbsp|serving)?$/i);
       if (match) {
         return {
@@ -252,12 +251,35 @@ export default function FoodReference() {
       }
       return { foodName: line, referenceQuantity: 100, referenceUnit: "g" };
     });
+  };
 
-    setPendingBatchFoods(parsed);
+  const handleBatchTextChange = (text) => {
+    setBatchInputText(text);
+    const parsed = parseTextToFoods(text);
+    if (parsed.length > 0) {
+      setPendingBatchFoods(parsed);
+    }
+  };
+
+  const handleParseBatchText = () => {
+    const parsed = parseTextToFoods(batchInputText);
+    if (parsed.length > 0) {
+      setPendingBatchFoods(parsed);
+    }
+  };
+
+  const getBatchItemsCount = () => {
+    const fromRows = pendingBatchFoods.filter(f => f.foodName && f.foodName.trim()).length;
+    if (fromRows > 0) return fromRows;
+    return parseTextToFoods(batchInputText).length;
   };
 
   const handleExecuteBatchFetch = async () => {
-    const validFoods = pendingBatchFoods.filter(f => f.foodName && f.foodName.trim());
+    let validFoods = pendingBatchFoods.filter(f => f.foodName && f.foodName.trim());
+    if (validFoods.length === 0 && batchInputText.trim()) {
+      validFoods = parseTextToFoods(batchInputText);
+      setPendingBatchFoods(validFoods);
+    }
     if (validFoods.length === 0) return;
 
     setBatchProcessing(true);
@@ -758,23 +780,17 @@ export default function FoodReference() {
                     style={{ background: "var(--bg-secondary)", padding: "10px", borderRadius: "10px", border: "1px solid var(--border-color)", resize: "vertical" }}
                     placeholder="Chicken Breast 150g&#10;Paneer 100g&#10;Banana 1 piece&#10;Almonds 30g"
                     value={batchInputText}
-                    onChange={(e) => setBatchInputText(e.target.value)}
+                    onChange={(e) => handleBatchTextChange(e.target.value)}
                   />
-                  <button 
-                    type="button" 
-                    className="btn-premium-secondary" 
-                    style={{ alignSelf: "flex-end", height: "32px", fontSize: "0.75rem" }}
-                    onClick={handleParseBatchText}
-                  >
-                    Parse Bulk Text
-                  </button>
                 </div>
 
                 {/* Queue Items Table */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "260px", overflowY: "auto" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>
-                    PENDING FOOD QUEUE ({pendingBatchFoods.length} ITEMS)
-                  </label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <label className="nothing-label" style={{ fontSize: "0.65rem" }}>
+                      PENDING FOOD QUEUE ({getBatchItemsCount()} ITEMS)
+                    </label>
+                  </div>
 
                   {pendingBatchFoods.map((item, idx) => (
                     <div key={idx} style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -833,17 +849,17 @@ export default function FoodReference() {
                     disabled={batchProcessing}
                     style={{ height: "36px", fontSize: "0.8rem" }}
                   >
-                    <Plus size={14} /> Add Another Row
+                    <Plus size={14} /> Add Row
                   </button>
 
                   <button 
                     type="button" 
-                    className="btn-premium-primary" 
+                    className="btn-premium-primary glow-white" 
                     onClick={handleExecuteBatchFetch}
-                    disabled={batchProcessing || pendingBatchFoods.filter(f => f.foodName.trim()).length === 0}
-                    style={{ height: "42px", padding: "0 24px" }}
+                    disabled={batchProcessing || getBatchItemsCount() === 0}
+                    style={{ height: "44px", padding: "0 28px", fontWeight: "800" }}
                   >
-                    <Sparkles size={16} /> Fetch Details ({pendingBatchFoods.filter(f => f.foodName.trim()).length})
+                    <Sparkles size={16} /> Fetch Details ({getBatchItemsCount()})
                   </button>
                 </div>
 
