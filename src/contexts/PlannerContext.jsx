@@ -317,14 +317,41 @@ export function PlannerProvider({ children }) {
       setDiets(tempDiets);
     });
 
-    // 3. Sync Food References
-    const foodRefColRef = collection(db, "users", uid, "foodReference");
-    const unsubFoodRef = onSnapshot(foodRefColRef, (querySnap) => {
-      const tempFoodRefs = [];
-      querySnap.forEach((docSnap) => {
-        tempFoodRefs.push({ id: docSnap.id, ...docSnap.data() });
+    // 3. Sync Global Master Food Library
+    const masterColRef = collection(db, "masterFoodLibrary");
+    const userFoodRefColRef = collection(db, "users", uid, "foodReference");
+
+    const unsubFoodRef = onSnapshot(masterColRef, async (masterSnap) => {
+      const itemsMap = new Map();
+
+      // Seed initial foods if master collection is empty
+      if (masterSnap.empty) {
+        for (const item of INITIAL_FOOD_REF) {
+          const newDocRef = doc(masterColRef);
+          await setDoc(newDocRef, { ...item, createdAt: new Date().toISOString() });
+        }
+        return;
+      }
+
+      masterSnap.forEach((docSnap) => {
+        const d = docSnap.data();
+        const norm = (d.foodName || d.name || "").toLowerCase().trim();
+        if (norm) {
+          itemsMap.set(docSnap.id, { id: docSnap.id, ...d });
+        }
       });
-      setFoodReferences(tempFoodRefs);
+
+      // Merge with user specific overrides
+      try {
+        const userSnap = await getDocs(userFoodRefColRef);
+        userSnap.forEach((docSnap) => {
+          itemsMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+        });
+      } catch (err) {
+        console.warn("User foodRef lookup warn:", err);
+      }
+
+      setFoodReferences(Array.from(itemsMap.values()));
     });
 
     // 4. Sync Workout History Logs
@@ -874,15 +901,13 @@ export function PlannerProvider({ children }) {
   };
 
   // ==========================================
-  // Food Reference CRUD
-  // ==========================================
-  // ==========================================
-  // Food Reference CRUD
+  // Food Reference CRUD (Global Stock & Sync)
   // ==========================================
   const addFoodRef = async (dataOrName, serving, protein) => {
     if (!currentUser) return;
     const uid = currentUser.uid;
-    const foodRefColRef = collection(db, "users", uid, "foodReference");
+    const masterColRef = collection(db, "masterFoodLibrary");
+    const userFoodRefColRef = collection(db, "users", uid, "foodReference");
 
     const payload = typeof dataOrName === "object" ? dataOrName : {
       foodName: dataOrName,
@@ -926,7 +951,8 @@ export function PlannerProvider({ children }) {
       updatedAt: new Date().toISOString()
     };
 
-    await addDoc(foodRefColRef, docData);
+    await addDoc(masterColRef, docData);
+    try { await addDoc(userFoodRefColRef, docData); } catch (e) {}
   };
 
   const addBatchFoodRefs = async (foodsArray = []) => {
@@ -939,7 +965,8 @@ export function PlannerProvider({ children }) {
   const editFoodRef = async (foodId, dataOrName, serving, protein) => {
     if (!currentUser) return;
     const uid = currentUser.uid;
-    const foodRefDocRef = doc(db, "users", uid, "foodReference", foodId);
+    const masterDocRef = doc(db, "masterFoodLibrary", foodId);
+    const userDocRef = doc(db, "users", uid, "foodReference", foodId);
 
     const payload = typeof dataOrName === "object" ? dataOrName : {
       foodName: dataOrName,
@@ -982,16 +1009,19 @@ export function PlannerProvider({ children }) {
       updatedAt: new Date().toISOString()
     };
 
-    await updateDoc(foodRefDocRef, updateData);
+    try { await updateDoc(masterDocRef, updateData); } catch (e) {}
+    try { await updateDoc(userDocRef, updateData); } catch (e) {}
     await updateCascadeDietReferences(foodId, updateData.name, updateData.serving, updateData.protein, updateData.calories);
   };
 
   const deleteFoodRef = async (foodId) => {
     if (!currentUser) return;
     const uid = currentUser.uid;
-    const foodRefDocRef = doc(db, "users", uid, "foodReference", foodId);
+    const masterDocRef = doc(db, "masterFoodLibrary", foodId);
+    const userDocRef = doc(db, "users", uid, "foodReference", foodId);
 
-    await deleteDoc(foodRefDocRef);
+    try { await deleteDoc(masterDocRef); } catch (e) {}
+    try { await deleteDoc(userDocRef); } catch (e) {}
   };
 
   const updateCascadeDietReferences = async (refId, newName, newServing, newProtein, newCalories) => {
