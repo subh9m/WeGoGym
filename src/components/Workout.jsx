@@ -13,7 +13,9 @@ import {
   Trophy,
   CheckCircle2,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  X,
+  AlertCircle
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -31,6 +33,8 @@ export default function Workout() {
   const { 
     workouts, 
     updateExercise, 
+    updateExerciseSet,
+    getSetsList,
     activeTimer, 
     startSession, 
     pauseSession, 
@@ -49,6 +53,7 @@ export default function Workout() {
   } = usePlanner();
 
   const [selectedDay, setSelectedDay] = useState("day1");
+  const [showEndModal, setShowEndModal] = useState(false);
 
   useEffect(() => {
     const today = new Date().getDay();
@@ -90,7 +95,13 @@ export default function Workout() {
 
   const activeWorkout = workouts[selectedDay] || { type: "Rest", exercises: [] };
   const totalExercises = activeWorkout.exercises ? activeWorkout.exercises.length : 0;
-  const completedExercises = activeWorkout.exercises ? activeWorkout.exercises.filter(e => e.completed).length : 0;
+  
+  // Calculate completed exercises based on set completion
+  const completedExercises = activeWorkout.exercises ? activeWorkout.exercises.filter(e => {
+    const sets = getSetsList(e);
+    return sets.length > 0 && sets.every(s => s.completed);
+  }).length : 0;
+  
   const progressPct = totalExercises > 0 ? Math.round((completedExercises / totalExercises) * 100) : 0;
 
   const formatElapsed = (totalSeconds) => {
@@ -130,19 +141,36 @@ export default function Workout() {
   const proteinTarget = profile?.proteinTarget || 100;
   const isProteinAchieved = proteinToday >= proteinTarget;
 
-  const handleToggleExercise = (index) => {
-    const ex = activeWorkout.exercises[index];
-    const isNowCompleted = !ex.completed;
+  // Toggle single set completion state (Manual timer independent)
+  const handleToggleSet = (exIndex, setIndex, currentStatus) => {
+    const nextStatus = !currentStatus;
+    updateExerciseSet(selectedDay, exIndex, setIndex, { completed: nextStatus });
 
-    updateExercise(selectedDay, index, { completed: isNowCompleted });
-
-    if (isNowCompleted && !restActive) {
+    // Rest timer trigger if checking complete and rest timer not active
+    if (nextStatus && !restActive) {
       startRest(90);
     }
+  };
 
-    if (!activeTimer && isNowCompleted) {
-      startSession(selectedDay);
+  // Smart Progressive Overload Calculator
+  const getSmartRecommendation = (ex, exPr) => {
+    const setsList = getSetsList(ex);
+    const completedSets = setsList.filter(s => s.completed).length;
+    const totalSets = setsList.length;
+
+    if (totalSets === 0) {
+      return { text: "Maintain current weight", color: "var(--text-secondary)" };
     }
+
+    if (completedSets === totalSets) {
+      return { text: "Next workout: increase weight by +2.5 kg", color: "var(--accent-success)" };
+    }
+
+    if (completedSets >= Math.ceil(totalSets * 0.75)) {
+      return { text: "Maintain current weight & form", color: "var(--accent-warning)" };
+    }
+
+    return { text: "Consider reducing weight by 2.5 kg", color: "var(--accent-abs)" };
   };
 
   return (
@@ -174,7 +202,7 @@ export default function Workout() {
 
       {/* Main Routine Header Card */}
       <div className={`nothing-card glow-${getWorkoutColorName(activeWorkout.type)}`}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
           <div>
             <span className="nothing-label">Today's Routine</span>
             <h1 className="nothing-title" style={{ fontSize: "1.8rem", marginTop: "4px" }}>
@@ -182,9 +210,10 @@ export default function Workout() {
             </h1>
           </div>
 
+          {/* Manual Timer Session Control Bar */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {activeTimer && activeTimer.dayKey === selectedDay ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(239, 68, 68, 0.1)", border: "1px solid var(--accent-push)", padding: "8px 16px", borderRadius: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(239, 68, 68, 0.1)", border: "1px solid var(--accent-push)", padding: "8px 16px", borderRadius: "14px" }}>
                 <Clock size={16} color="var(--accent-push)" />
                 <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", color: "var(--accent-push)", fontSize: "1.05rem" }}>
                   {formatElapsed(activeTimer.elapsedSeconds)}
@@ -198,8 +227,12 @@ export default function Workout() {
                     <Pause size={14} />
                   </button>
                 )}
-                <button className="btn-premium-primary" style={{ height: "36px", padding: "0 14px", fontSize: "0.8rem" }} onClick={finishSession}>
-                  Finish
+                <button 
+                  className="btn-premium-danger" 
+                  style={{ height: "36px", padding: "0 14px", fontSize: "0.8rem" }} 
+                  onClick={() => setShowEndModal(true)}
+                >
+                  End Workout
                 </button>
               </div>
             ) : (
@@ -208,7 +241,7 @@ export default function Workout() {
                 onClick={() => startSession(selectedDay)}
                 disabled={totalExercises === 0}
               >
-                <Play size={16} /> Start Session
+                <Play size={16} /> Start Workout
               </button>
             )}
           </div>
@@ -234,7 +267,7 @@ export default function Workout() {
 
             <div className={`metric-card ${activeTimer ? "glow-red" : "glow-white"}`}>
               <div className="metric-card-header">
-                <span>Session Duration</span>
+                <span>Session Timer</span>
                 <Clock size={16} color={activeTimer ? "var(--accent-push)" : "var(--text-secondary)"} />
               </div>
               {activeTimer && activeTimer.dayKey === selectedDay ? (
@@ -243,7 +276,7 @@ export default function Workout() {
                 </div>
               ) : (
                 <div className="metric-value" style={{ color: "var(--text-muted)", fontSize: "0.95rem" }}>
-                  Idle Session
+                  Not Started
                 </div>
               )}
             </div>
@@ -327,26 +360,31 @@ export default function Workout() {
           </div>
         </div>
 
-        {/* Right Pane: Exercise Grid Cards */}
+        {/* Right Pane: Exercise Grid Cards with Per-Set Tracking */}
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div className="nothing-card-header" style={{ marginBottom: "0" }}>
             <span className="nothing-title">Exercises ({totalExercises})</span>
-            <span className="nothing-label">Day Routine Targets</span>
+            <span className="nothing-label">Per-Set Gym Tracker</span>
           </div>
 
           {totalExercises > 0 ? (
             <div className="exercise-responsive-grid">
               {activeWorkout.exercises.map((ex, index) => {
                 const exPr = prs[ex.name.toLowerCase()];
-                const isCompleted = ex.completed;
+                const setsList = getSetsList(ex);
+                const completedSetsCount = setsList.filter(s => s.completed).length;
+                const totalSetsCount = setsList.length;
+                const isAllCompleted = totalSetsCount > 0 && completedSetsCount === totalSetsCount;
+                const rec = getSmartRecommendation(ex, exPr);
 
                 return (
                   <motion.div 
                     key={ex.id || index}
-                    className={`premium-exercise-card ${isCompleted ? "completed" : ""} glow-white`}
+                    className={`premium-exercise-card ${isAllCompleted ? "completed" : ""} glow-white`}
                     whileHover={{ y: -2 }}
                   >
                     <div>
+                      {/* Exercise Header */}
                       <div className="exercise-header-top">
                         <div className="exercise-title-area">
                           <div className="exercise-icon-box">
@@ -362,68 +400,98 @@ export default function Workout() {
                           </div>
                         </div>
 
-                        {/* Nothing Checkbox Toggle Switch */}
-                        <label className="nothing-toggle-label" title={isCompleted ? "Mark incomplete" : "Mark completed"}>
-                          <input 
-                            type="checkbox"
-                            checked={isCompleted}
-                            onChange={() => handleToggleExercise(index)}
-                          />
-                          <span className="nothing-slider" />
-                        </label>
+                        {/* Exercise Completion Badge */}
+                        <div>
+                          {isAllCompleted ? (
+                            <span style={{ background: "rgba(34, 197, 94, 0.15)", color: "var(--accent-success)", border: "1px solid var(--accent-success)", padding: "4px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <CheckCircle2 size={13} /> {completedSetsCount}/{totalSetsCount} Sets Complete
+                            </span>
+                          ) : (
+                            <span style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border-color)", padding: "4px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: "600" }}>
+                              {completedSetsCount}/{totalSetsCount} Sets
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Weight, Sets, Reps Controls */}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginTop: "16px" }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                          <span className="nothing-label" style={{ fontSize: "0.6rem" }}>Weight</span>
-                          <div className="premium-input-box" style={{ height: "42px" }}>
-                            <input 
-                              type="number" 
-                              className="premium-inner-input"
-                              value={ex.weight || 0}
-                              onChange={(e) => updateExercise(selectedDay, index, { weight: Number(e.target.value) })}
-                            />
-                            <span className="premium-input-unit">kg</span>
-                          </div>
+                      {/* Per-Set Gym Logging Table */}
+                      <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "55px 1fr 1fr 44px", gap: "8px", padding: "0 4px", fontSize: "0.65rem", fontFamily: "var(--font-mono)", color: "var(--text-muted)", textTransform: "uppercase" }}>
+                          <span>SET</span>
+                          <span>WEIGHT (KG)</span>
+                          <span>REPS</span>
+                          <span style={{ textAlign: "center" }}>DONE</span>
                         </div>
 
-                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                          <span className="nothing-label" style={{ fontSize: "0.6rem" }}>Sets</span>
-                          <div className="premium-input-box" style={{ height: "42px" }}>
-                            <input 
-                              type="number" 
-                              className="premium-inner-input"
-                              value={ex.sets || 0}
-                              onChange={(e) => updateExercise(selectedDay, index, { sets: Number(e.target.value) })}
-                            />
-                          </div>
-                        </div>
+                        {setsList.map((setObj, setIdx) => (
+                          <div 
+                            key={setIdx}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "55px 1fr 1fr 44px",
+                              gap: "8px",
+                              alignItems: "center",
+                              background: setObj.completed ? "rgba(34, 197, 94, 0.08)" : "var(--bg-secondary)",
+                              border: setObj.completed ? "1px solid rgba(34, 197, 94, 0.35)" : "1px solid var(--border-color)",
+                              borderRadius: "10px",
+                              padding: "6px 8px",
+                              transition: "all 0.15s ease"
+                            }}
+                          >
+                            <span style={{ fontFamily: "var(--font-mono)", fontWeight: "700", fontSize: "0.85rem", color: "var(--text-secondary)", paddingLeft: "4px" }}>
+                              Set {setObj.setNum}
+                            </span>
 
-                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                          <span className="nothing-label" style={{ fontSize: "0.6rem" }}>Reps</span>
-                          <div className="premium-input-box" style={{ height: "42px" }}>
-                            <input 
-                              type="number" 
-                              className="premium-inner-input"
-                              value={ex.reps || 0}
-                              onChange={(e) => updateExercise(selectedDay, index, { reps: Number(e.target.value) })}
-                            />
+                            <div className="premium-input-box" style={{ height: "36px", background: "var(--bg-card)" }}>
+                              <input 
+                                type="number"
+                                className="premium-inner-input"
+                                style={{ fontSize: "0.85rem", padding: "0 6px" }}
+                                value={setObj.weight || 0}
+                                onChange={(e) => updateExerciseSet(selectedDay, index, setIdx, { weight: Number(e.target.value) })}
+                              />
+                              <span className="premium-input-unit" style={{ fontSize: "0.65rem" }}>kg</span>
+                            </div>
+
+                            <div className="premium-input-box" style={{ height: "36px", background: "var(--bg-card)" }}>
+                              <input 
+                                type="number"
+                                className="premium-inner-input"
+                                style={{ fontSize: "0.85rem", padding: "0 6px" }}
+                                value={setObj.reps || 0}
+                                onChange={(e) => updateExerciseSet(selectedDay, index, setIdx, { reps: Number(e.target.value) })}
+                              />
+                            </div>
+
+                            <div style={{ display: "flex", justifyContent: "center" }}>
+                              <label className="nothing-toggle-label" title={setObj.completed ? "Mark set incomplete" : "Mark set complete"}>
+                                <input 
+                                  type="checkbox"
+                                  checked={setObj.completed}
+                                  onChange={() => handleToggleSet(index, setIdx, setObj.completed)}
+                                />
+                                <span className="nothing-slider" />
+                              </label>
+                            </div>
                           </div>
-                        </div>
+                        ))}
                       </div>
                     </div>
 
-                    {/* PR Footer */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-color)", fontSize: "0.75rem" }}>
+                    {/* PR Record & Progressive Overload Footer */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--border-color)", fontSize: "0.75rem" }}>
                       <div style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
                         <Trophy size={14} color="var(--accent-protein)" />
                         <span>Best: </span>
-                        <strong style={{ color: "var(--text-primary)" }}>{exPr ? `${exPr.highestWeight}kg` : "None"}</strong>
+                        <strong style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>
+                          {exPr ? `${exPr.highestWeight}kg` : "None"}
+                        </strong>
                       </div>
-                      <span style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: "0.7rem" }}>
-                        {ex.notes || "+2.5kg recommended"}
-                      </span>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", color: rec.color, fontWeight: "600", fontSize: "0.72rem" }}>
+                        <TrendingUp size={13} />
+                        <span>{rec.text}</span>
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -439,6 +507,42 @@ export default function Workout() {
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal Dialog for Ending Workout */}
+      {showEndModal && (
+        <div className="modal-overlay" onClick={() => setShowEndModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
+              <span className="nothing-title" style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "8px" }}>
+                <AlertCircle size={20} color="var(--accent-push)" /> End Workout Session?
+              </span>
+              <button className="header-action-btn" onClick={() => setShowEndModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: "1.5", marginBottom: "24px" }}>
+              Are you sure you want to finish this session? Your workout duration, total volume, completed sets, and PR achievements will be calculated and saved to your Workout History.
+            </p>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button className="btn-premium-secondary" onClick={() => setShowEndModal(false)}>
+                Continue Workout
+              </button>
+              <button 
+                className="btn-premium-primary" 
+                style={{ background: "var(--accent-push)", borderColor: "var(--accent-push)", color: "#fff" }}
+                onClick={async () => {
+                  setShowEndModal(false);
+                  await finishSession();
+                }}
+              >
+                End & Save Workout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

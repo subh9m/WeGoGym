@@ -485,6 +485,27 @@ export function PlannerProvider({ children }) {
     localStorage.removeItem("wegogym_active_timer");
   };
 
+  // Helper to normalize per-set tracking list
+  const getSetsList = (ex) => {
+    if (!ex) return [];
+    if (Array.isArray(ex.setsList) && ex.setsList.length > 0) {
+      return ex.setsList;
+    }
+    const count = parseInt(ex.sets) || 3;
+    const weightVal = parseFloat(ex.weight) || 40;
+    const repsVal = parseInt(ex.reps) || 10;
+    const list = [];
+    for (let i = 1; i <= count; i++) {
+      list.push({
+        setNum: i,
+        weight: weightVal,
+        reps: repsVal,
+        completed: Boolean(ex.completed)
+      });
+    }
+    return list;
+  };
+
   const finishSession = async () => {
     if (!currentUser || !activeTimer) return;
 
@@ -497,20 +518,59 @@ export function PlannerProvider({ children }) {
       const durationMinutes = Math.round(activeTimer.elapsedSeconds / 60) || 1;
       const todayStr = getFormattedDate(new Date());
 
-      // 1. Gather all exercises
-      const completedExercises = dayWorkout.exercises.filter(ex => ex.completed);
-      const totalSets = completedExercises.reduce((acc, ex) => acc + (parseInt(ex.sets) || 0), 0);
+      // 1. Compute Per-Set Workout Summaries
+      let totalVolume = 0;
+      let totalCompletedSets = 0;
+      let totalCompletedReps = 0;
+      let completedExercisesCount = 0;
 
-      // 2. Update Personal Records (PRs) Loop
+      const processedExercises = dayWorkout.exercises.map((ex) => {
+        const setsList = getSetsList(ex);
+        let exVolume = 0;
+        let exMaxWeight = 0;
+        let exCompletedSets = 0;
+
+        setsList.forEach((s) => {
+          if (s.completed) {
+            const w = parseFloat(s.weight) || 0;
+            const r = parseInt(s.reps) || 0;
+            const v = w * r;
+            exVolume += v;
+            totalVolume += v;
+            totalCompletedSets += 1;
+            totalCompletedReps += r;
+            exCompletedSets += 1;
+            if (w > exMaxWeight) exMaxWeight = w;
+          }
+        });
+
+        const isExCompleted = setsList.length > 0 && setsList.every(s => s.completed);
+        if (exCompletedSets > 0) completedExercisesCount += 1;
+
+        return {
+          ...ex,
+          setsList,
+          completed: isExCompleted,
+          completedSetsCount: exCompletedSets,
+          totalSetsCount: setsList.length,
+          volume: exVolume,
+          maxWeight: exMaxWeight
+        };
+      });
+
+      const estimatedCalories = Math.round(durationMinutes * 6 + totalVolume * 0.005);
+      const avgWeight = totalCompletedReps > 0 ? parseFloat((totalVolume / totalCompletedReps).toFixed(1)) : 0;
+
+      // 2. Personal Records (PRs) Detection Engine
       const newPRsUnlocked = [];
-      const prColRef = collection(db, "users", uid, "prs");
       
-      for (const ex of completedExercises) {
+      for (const ex of processedExercises) {
+        if (ex.completedSetsCount === 0) continue;
         const sanitizedName = ex.name.toLowerCase().trim();
         const existingPR = prs[sanitizedName];
 
-        const currentWeightVal = parseFloat(ex.weight) || 0;
-        const currentVolume = (parseInt(ex.sets) || 0) * (parseInt(ex.reps) || 0) * currentWeightVal;
+        const currentMaxWeight = ex.maxWeight;
+        const currentVolume = ex.volume;
 
         let isNewPr = false;
         let prPayload = {};
@@ -519,35 +579,34 @@ export function PlannerProvider({ children }) {
           isNewPr = true;
           prPayload = {
             exerciseName: ex.name,
-            highestWeight: currentWeightVal,
+            highestWeight: currentMaxWeight,
             bestVolume: currentVolume,
             lastPerformed: todayStr,
             previousPrDate: todayStr
           };
         } else {
-          const isWeightPr = currentWeightVal > existingPR.highestWeight;
-          const isVolumePr = currentVolume > existingPR.bestVolume;
+          const isWeightPr = currentMaxWeight > (existingPR.highestWeight || 0);
+          const isVolumePr = currentVolume > (existingPR.bestVolume || 0);
 
           if (isWeightPr || isVolumePr) {
             isNewPr = true;
             prPayload = {
               exerciseName: ex.name,
-              highestWeight: Math.max(currentWeightVal, existingPR.highestWeight),
-              bestVolume: Math.max(currentVolume, existingPR.bestVolume),
+              highestWeight: Math.max(currentMaxWeight, existingPR.highestWeight || 0),
+              bestVolume: Math.max(currentVolume, existingPR.bestVolume || 0),
               lastPerformed: todayStr,
-              previousPrDate: existingPR.lastPerformed
+              previousPrDate: existingPR.lastPerformed || todayStr
             };
           }
         }
 
         if (isNewPr) {
-          // Set PR specifically keyed by sanitized name
           await setDoc(doc(db, "users", uid, "prs", sanitizedName), prPayload);
           newPRsUnlocked.push(ex.name);
         }
       }
 
-      // 3. Write record into History Collection
+      // 3. Save Summary into History Collection
       const historyColRef = collection(db, "users", uid, "history");
       const sessionDocName = `hist-${Date.now()}`;
       await setDoc(doc(historyColRef, sessionDocName), {
@@ -557,9 +616,14 @@ export function PlannerProvider({ children }) {
         startTime: formatTime(activeTimer.startTime),
         endTime: formatTime(Date.now()),
         durationMinutes,
-        completedCount: completedExercises.length,
-        totalSets,
-        exercises: dayWorkout.exercises
+        durationSeconds: activeTimer.elapsedSeconds,
+        completedCount: completedExercisesCount,
+        completedSets: totalCompletedSets,
+        totalVolume,
+        estimatedCalories,
+        avgWeight,
+        prsAchieved: newPRsUnlocked,
+        exercises: processedExercises
       });
 
       // 4. Update gym streaks in profile config
@@ -580,28 +644,29 @@ export function PlannerProvider({ children }) {
         newStreak.lastWorkoutDate = todayStr;
       }
 
-      // Update statistics caches
       newStats.totalWorkouts += 1;
-      newStats.totalExercises += completedExercises.length;
-      newStats.totalSets += totalSets;
-      // Convert minutes to total hours
+      newStats.totalExercises += completedExercisesCount;
+      newStats.totalSets += totalCompletedSets;
       const newTotalMinutes = (newStats.totalHours * 60) + durationMinutes;
       newStats.totalHours = parseFloat((newTotalMinutes / 60).toFixed(1));
       newStats.avgDuration = Math.round(newTotalMinutes / newStats.totalWorkouts);
 
-      // Save stats to config
       const profileDocRef = doc(db, "users", uid, "profile", "config");
       await updateDoc(profileDocRef, {
         streak: newStreak,
         stats: newStats
       });
 
-      // 5. Reset active day exercises in Firestore (Uncheck completes)
+      // 5. Reset active day exercises in Firestore (Uncheck completed set flags for next routine cycle)
       const workoutDocRef = doc(db, "users", uid, "workouts", dayKey);
-      const resetExercises = dayWorkout.exercises.map(ex => ({
-        ...ex,
-        completed: false
-      }));
+      const resetExercises = dayWorkout.exercises.map(ex => {
+        const setsList = getSetsList(ex).map(s => ({ ...s, completed: false }));
+        return {
+          ...ex,
+          completed: false,
+          setsList
+        };
+      });
       await updateDoc(workoutDocRef, { exercises: resetExercises });
 
       // Clean local storage states
@@ -618,54 +683,37 @@ export function PlannerProvider({ children }) {
   };
 
   // ==========================================
-  // Global Rest Timer Handles
+  // Standard Workout Updates & Per-Set Logging
   // ==========================================
-  const startRest = (seconds) => {
-    setRestInitial(seconds);
-    setRestSeconds(seconds);
-    setRestActive(true);
+  const updateExerciseSet = async (dayKey, exerciseIndex, setIndex, updatedSetFields) => {
+    if (!currentUser) return;
+    const uid = currentUser.uid;
+    const workoutDocRef = doc(db, "users", uid, "workouts", dayKey);
+    const dayWorkout = workouts[dayKey];
+    if (!dayWorkout || !dayWorkout.exercises[exerciseIndex]) return;
 
-    const cache = {
-      secondsRemaining: seconds,
-      isActive: true,
-      initialSeconds: seconds,
-      lastUpdated: Date.now()
+    const newExercises = [...dayWorkout.exercises];
+    const targetEx = { ...newExercises[exerciseIndex] };
+    const currentSetsList = getSetsList(targetEx);
+
+    const updatedSetsList = [...currentSetsList];
+    updatedSetsList[setIndex] = {
+      ...updatedSetsList[setIndex],
+      ...updatedSetFields
     };
-    localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
-  };
 
-  const pauseRest = () => {
-    setRestActive(false);
-    const cache = {
-      secondsRemaining: restSeconds,
-      isActive: false,
-      initialSeconds: restInitial,
-      lastUpdated: Date.now()
+    // Exercise is completed ONLY when ALL sets in setsList are marked completed
+    const allSetsCompleted = updatedSetsList.every(s => s.completed);
+
+    newExercises[exerciseIndex] = {
+      ...targetEx,
+      setsList: updatedSetsList,
+      completed: allSetsCompleted
     };
-    localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
+
+    await updateDoc(workoutDocRef, { exercises: newExercises });
   };
 
-  const resumeRest = () => {
-    if (restSeconds <= 0) return;
-    setRestActive(true);
-    const cache = {
-      secondsRemaining: restSeconds,
-      isActive: true,
-      initialSeconds: restInitial,
-      lastUpdated: Date.now()
-    };
-    localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
-  };
-
-  const resetRest = () => {
-    setRestSeconds(0);
-    setRestActive(false);
-    localStorage.removeItem("wegogym_rest_timer");
-  };
-
-  // ==========================================
-  // Standard Workout Updates
-  // ==========================================
   const updateExercise = async (dayKey, exerciseIndex, updatedFields) => {
     if (!currentUser) return;
     const uid = currentUser.uid;
@@ -681,28 +729,7 @@ export function PlannerProvider({ children }) {
     };
 
     await updateDoc(workoutDocRef, { exercises: newExercises });
-
-    // AUTOMATIC TIMER TRIGGERS
-    // If checking an exercise, handle timers:
-    if ("completed" in updatedFields) {
-      const isChecked = updatedFields.completed;
-      
-      if (isChecked) {
-        // A: If no session active timer is running, start one!
-        if (!activeTimer) {
-          startSession(dayKey);
-        }
-        
-        // B: If all exercises inside this workout day are now completed: automatically trigger finishSession!
-        const allDone = newExercises.every(ex => ex.completed);
-        if (allDone) {
-          // Delay briefly to allow rendering completion UI before resetting exercises
-          setTimeout(() => {
-            finishSession();
-          }, 600);
-        }
-      }
-    }
+    // Note: Timer triggers are manual only (Feature 1 requirement)
   };
 
   // ==========================================
@@ -853,6 +880,8 @@ export function PlannerProvider({ children }) {
     history,
     prs,
     updateExercise,
+    updateExerciseSet,
+    getSetsList,
     addFoodToMeal,
     removeFoodFromMeal,
     updateFoodQuantity,

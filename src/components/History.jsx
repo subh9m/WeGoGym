@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
-  Clock, 
   Dumbbell, 
-  TrendingUp, 
-  ChevronRight, 
   X, 
   Flame, 
   Trophy, 
   CalendarDays,
-  Activity
+  Activity,
+  CheckCircle2,
+  Zap,
+  ChevronRight
 } from "lucide-react";
 
 export default function History() {
-  const { history, prs, profile } = usePlanner();
+  const { history, profile } = usePlanner();
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [drawerLog, setDrawerLog] = useState(null);
   const [yearOptions, setYearOptions] = useState([]);
@@ -32,6 +32,7 @@ export default function History() {
 
   const getSessionVolume = (exercises) => {
     return (exercises || []).reduce((acc, ex) => {
+      if (ex.volume !== undefined) return acc + ex.volume;
       const w = parseFloat(ex.weight) || 0;
       const s = parseInt(ex.sets) || 0;
       const r = parseInt(ex.reps) || 0;
@@ -155,7 +156,7 @@ export default function History() {
         {history && history.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {history.map((log) => {
-              const sessionVol = getSessionVolume(log.exercises || []);
+              const sessionVol = log.totalVolume || getSessionVolume(log.exercises || []);
 
               return (
                 <motion.div
@@ -172,9 +173,14 @@ export default function History() {
                         <span className="exercise-badge-muscle muscle-push" style={{ fontSize: "0.65rem" }}>
                           {log.routineType || "Split Routine"}
                         </span>
+                        {log.prsAchieved && log.prsAchieved.length > 0 && (
+                          <span style={{ background: "rgba(236, 72, 153, 0.15)", color: "var(--accent-pr)", border: "1px solid var(--accent-pr)", padding: "2px 8px", borderRadius: "10px", fontSize: "0.65rem", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                            🏆 PR Unlocked
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                        {formatReadableDate(log.date)} • {log.durationMinutes} mins duration
+                        {formatReadableDate(log.date)} • {log.durationMinutes} mins duration • {log.estimatedCalories || 0} kcal
                       </div>
                     </div>
 
@@ -184,7 +190,7 @@ export default function History() {
                           {sessionVol}kg
                         </div>
                         <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: "600" }}>
-                          {log.completedCount} exercises
+                          {log.completedCount || 0} exercises • {log.completedSets || 0} sets
                         </div>
                       </div>
                       <ChevronRight size={18} color="var(--text-secondary)" />
@@ -204,60 +210,116 @@ export default function History() {
         )}
       </div>
 
-      {/* Slide-Over Right Drawer Panel */}
+      {/* Slide-Over Right Drawer Panel with Per-Set Breakdown */}
       {drawerLog && (
         <div className="drawer-overlay" onClick={() => setDrawerLog(null)}>
           <div className="right-drawer-panel" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
               <div>
-                <h3 className="nothing-title" style={{ fontSize: "1.2rem" }}>{drawerLog.dayName} Log Details</h3>
-                <span className="nothing-label">{formatReadableDate(drawerLog.date)}</span>
+                <h3 className="nothing-title" style={{ fontSize: "1.2rem" }}>{drawerLog.dayName} Workout Details</h3>
+                <span className="nothing-label">{formatReadableDate(drawerLog.date)} • {drawerLog.startTime || ""}</span>
               </div>
               <button className="header-action-btn" onClick={() => setDrawerLog(null)}>
                 <X size={18} />
               </button>
             </div>
 
-            <div className="drawer-body">
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }}>
+            <div className="drawer-body" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {/* 4 Summary Stat Widgets */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
                 <div className="metric-card">
-                  <span className="nothing-label">Duration</span>
-                  <div className="metric-value">{drawerLog.durationMinutes} mins</div>
+                  <span className="nothing-label" style={{ fontSize: "0.6rem" }}>DURATION</span>
+                  <div className="metric-value" style={{ fontSize: "1.2rem" }}>{drawerLog.durationMinutes} mins</div>
                 </div>
+
                 <div className="metric-card">
-                  <span className="nothing-label">Session Volume</span>
-                  <div className="metric-value">{getSessionVolume(drawerLog.exercises || [])}kg</div>
+                  <span className="nothing-label" style={{ fontSize: "0.6rem" }}>TOTAL VOLUME</span>
+                  <div className="metric-value" style={{ fontSize: "1.2rem", color: "var(--accent-push)" }}>
+                    {drawerLog.totalVolume || getSessionVolume(drawerLog.exercises || [])}kg
+                  </div>
+                </div>
+
+                <div className="metric-card">
+                  <span className="nothing-label" style={{ fontSize: "0.6rem" }}>EST. CALORIES</span>
+                  <div className="metric-value" style={{ fontSize: "1.2rem", color: "var(--accent-abs)" }}>
+                    {drawerLog.estimatedCalories || 0} kcal
+                  </div>
+                </div>
+
+                <div className="metric-card">
+                  <span className="nothing-label" style={{ fontSize: "0.6rem" }}>COMPLETED SETS</span>
+                  <div className="metric-value" style={{ fontSize: "1.2rem", color: "var(--accent-legs)" }}>
+                    {drawerLog.completedSets || 0} sets
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <span className="nothing-label" style={{ marginBottom: "8px", display: "block" }}>Lifting Log Entries</span>
-                <div style={{ border: "1px solid var(--border-color)", borderRadius: "12px", overflowX: "auto", width: "100%", WebkitOverflowScrolling: "touch" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-                    <thead>
-                      <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-color)" }}>
-                        <th style={{ padding: "10px 14px", textAlign: "left", color: "var(--text-secondary)" }}>Exercise</th>
-                        <th style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>Weight</th>
-                        <th style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>Sets</th>
-                        <th style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>Reps</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(drawerLog.exercises || []).filter(ex => ex.completed).map((ex, idx) => (
-                        <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                          <td style={{ padding: "10px 14px" }}>
-                            <div style={{ display: "flex", flexDirection: "column" }}>
-                              <span style={{ fontWeight: "700" }}>{ex.name}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{ex.weight}kg</td>
-                          <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{ex.sets}</td>
-                          <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{ex.reps}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {/* PRs Achieved Badge Alert */}
+              {drawerLog.prsAchieved && drawerLog.prsAchieved.length > 0 && (
+                <div style={{ background: "rgba(236, 72, 153, 0.1)", border: "1px solid var(--accent-pr)", padding: "12px 14px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <Trophy size={18} color="var(--accent-pr)" />
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-primary)", fontWeight: "600" }}>
+                    Personal Records Unlocked: <strong style={{ color: "var(--accent-pr)" }}>{drawerLog.prsAchieved.join(", ")}</strong>
+                  </div>
                 </div>
+              )}
+
+              {/* Detailed Exercises & Per-Set Tables */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <span className="nothing-label" style={{ fontSize: "0.75rem" }}>PER-SET LOGGING BREAKDOWN</span>
+
+                {(drawerLog.exercises || []).map((ex, exIdx) => {
+                  const setsList = Array.isArray(ex.setsList) && ex.setsList.length > 0 
+                    ? ex.setsList 
+                    : Array.from({ length: ex.sets || 3 }).map((_, i) => ({ setNum: i + 1, weight: ex.weight || 0, reps: ex.reps || 0, completed: ex.completed }));
+
+                  return (
+                    <div key={exIdx} style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", borderRadius: "14px", padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontWeight: "800", fontSize: "0.95rem" }}>{ex.name}</span>
+                          <span className={`exercise-badge-muscle muscle-${ex.muscle || "push"}`} style={{ fontSize: "0.6rem" }}>
+                            {ex.muscle || "General"}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "700" }}>
+                          Vol: {ex.volume || 0}kg
+                        </span>
+                      </div>
+
+                      <div style={{ border: "1px solid var(--border-color)", borderRadius: "10px", overflow: "hidden" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+                          <thead>
+                            <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-color)", color: "var(--text-muted)", fontSize: "0.65rem", fontFamily: "var(--font-mono)" }}>
+                              <th style={{ padding: "8px 12px", textAlign: "left" }}>SET #</th>
+                              <th style={{ padding: "8px 12px", textAlign: "right" }}>WEIGHT</th>
+                              <th style={{ padding: "8px 12px", textAlign: "right" }}>REPS</th>
+                              <th style={{ padding: "8px 12px", textAlign: "center" }}>STATUS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {setsList.map((s, sIdx) => (
+                              <tr key={sIdx} style={{ borderBottom: sIdx < setsList.length - 1 ? "1px solid var(--border-color)" : "none", background: s.completed ? "rgba(34, 197, 94, 0.05)" : "transparent" }}>
+                                <td style={{ padding: "8px 12px", fontWeight: "700", fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+                                  Set {s.setNum || sIdx + 1}
+                                </td>
+                                <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{s.weight} kg</td>
+                                <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "var(--font-mono)" }}>{s.reps}</td>
+                                <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                                  {s.completed ? (
+                                    <CheckCircle2 size={14} color="var(--accent-success)" style={{ margin: "0 auto" }} />
+                                  ) : (
+                                    <span style={{ color: "var(--text-muted)", fontSize: "0.7rem" }}>—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
