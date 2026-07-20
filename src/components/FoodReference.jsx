@@ -18,10 +18,12 @@ import {
   X,
   Sparkles,
   AlertCircle,
+  Zap,
+  Layers,
   Check,
-  Zap
+  RefreshCw
 } from "lucide-react";
-import { analyzeFoodWithGemini } from "../services/aiService";
+import { fetchNutritionDetails, fetchNutritionBatchWithQueue } from "../services/aiService";
 
 const FILTER_CHIPS = [
   { id: "all", label: "All Items", icon: Compass, activeClass: "active-all" },
@@ -35,10 +37,11 @@ const FILTER_CHIPS = [
 ];
 
 const UNIT_OPTIONS = ["g", "ml", "piece", "cup", "oz", "tbsp", "serving"];
+const FOOD_TYPE_OPTIONS = ["protein", "grain", "dairy", "vegetable", "fruit", "meat", "seafood", "legumes", "nuts", "supplement", "beverage", "snack"];
 
 export default function FoodReference() {
   const { currentUser } = useAuth();
-  const { foodReferences, addFoodRef, editFoodRef, deleteFoodRef } = usePlanner();
+  const { foodReferences, addFoodRef, addBatchFoodRefs, editFoodRef, deleteFoodRef } = usePlanner();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -47,24 +50,37 @@ export default function FoodReference() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Dialog State
+  // Single Item Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
-  // Form Fields
+  // Single Item Form Fields
   const [foodName, setFoodName] = useState("");
   const [refQuantity, setRefQuantity] = useState(100);
   const [refUnit, setRefUnit] = useState("g");
   const [protein, setProtein] = useState(20);
-  const [calories, setCalories] = useState(150);
-  const [categoryTag, setCategoryTag] = useState("Protein");
+  const [fat, setFat] = useState(2);
+  const [carbs, setCarbs] = useState(5);
+  const [fiber, setFiber] = useState(1);
+  const [calories, setCalories] = useState(120);
+  const [foodType, setFoodType] = useState("protein");
   const [isVegOption, setIsVegOption] = useState(true);
 
-  // AI Estimation States
+  // Single AI Estimation States
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiPreview, setAiPreview] = useState(null);
   const [aiError, setAiError] = useState("");
+
+  // Batch Processing Modal State
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchInputText, setBatchInputText] = useState("");
+  const [pendingBatchFoods, setPendingBatchFoods] = useState([
+    { foodName: "", referenceQuantity: 100, referenceUnit: "g" }
+  ]);
+  const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, text: "" });
+  const [batchResults, setBatchResults] = useState(null);
 
   useEffect(() => {
     localStorage.setItem("wegogym_food_favorites", JSON.stringify(favorites));
@@ -95,8 +111,11 @@ export default function FoodReference() {
     setRefQuantity(100);
     setRefUnit("g");
     setProtein(20);
-    setCalories(150);
-    setCategoryTag("Protein");
+    setFat(2);
+    setCarbs(5);
+    setFiber(1);
+    setCalories(120);
+    setFoodType("protein");
     setIsVegOption(true);
     setAiPreview(null);
     setAiError("");
@@ -111,16 +130,19 @@ export default function FoodReference() {
     setRefQuantity(food.referenceQuantity || parseInt(food.serving) || 100);
     setRefUnit(food.referenceUnit || "g");
     setProtein(food.protein || 0);
+    setFat(food.fat || 0);
+    setCarbs(food.carbs || 0);
+    setFiber(food.fiber || 0);
     setCalories(food.calories || Math.round((food.protein || 0) * 4));
-    setCategoryTag(food.categoryTag || "Protein");
+    setFoodType(food.foodType || food.categoryTag || "protein");
     setIsVegOption(isVegFood(food));
     setAiPreview(null);
     setAiError("");
     setModalOpen(true);
   };
 
-  // AI Estimation Handler
-  const handleAnalyzeWithAI = async () => {
+  // Single Item: Fetch Details Handler
+  const handleFetchDetails = async () => {
     if (!foodName.trim()) {
       setAiError("Please enter a food name first.");
       return;
@@ -132,18 +154,23 @@ export default function FoodReference() {
 
     try {
       const uid = currentUser ? currentUser.uid : null;
-      const result = await analyzeFoodWithGemini(uid, foodName, refQuantity, refUnit);
+      const result = await fetchNutritionDetails(uid, foodName, refQuantity, refUnit);
 
       setProtein(result.protein);
+      setFat(result.fat);
+      setCarbs(result.carbs);
+      setFiber(result.fiber);
       setCalories(result.calories);
+      setFoodType(result.foodType || "protein");
       setAiPreview(result);
 
-      if (result.lowConfidenceWarning) {
-        setAiError(result.lowConfidenceWarning);
+      // Auto set veg option based on food type
+      if (["meat", "seafood"].includes(result.foodType)) {
+        setIsVegOption(false);
       }
     } catch (err) {
-      console.error("AI estimation failed:", err);
-      setAiError(err.message || "Unable to estimate nutrition.");
+      console.error("Fetch Details failed:", err);
+      setAiError(err.message || "Unable to fetch nutrition details.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -160,12 +187,18 @@ export default function FoodReference() {
       referenceUnit: refUnit,
       serving: `${refQuantity}${refUnit}`,
       protein: Number(protein) || 0,
-      calories: Number(calories) || Math.round((Number(protein) || 0) * 4),
-      categoryTag: categoryTag,
+      fat: Number(fat) || 0,
+      carbs: Number(carbs) || 0,
+      fiber: Number(fiber) || 0,
+      calories: Number(calories) || Math.round((Number(protein) || 0) * 4 + (Number(carbs) || 0) * 4 + (Number(fat) || 0) * 9),
+      foodType: foodType,
+      categoryTag: foodType.toUpperCase(),
       isVeg: isVegOption,
       category: isVegOption ? "veg" : "nonveg",
-      aiGenerated: Boolean(aiPreview && !aiPreview.cached),
-      confidence: aiPreview ? aiPreview.confidence : 1.0
+      aiGenerated: Boolean(aiPreview && aiPreview.source === "gemini_ai"),
+      source: aiPreview ? aiPreview.source : "manual",
+      confidence: aiPreview ? aiPreview.confidence : 1.0,
+      verified: true
     };
 
     if (isEditing && editingId) {
@@ -176,21 +209,115 @@ export default function FoodReference() {
     setModalOpen(false);
   };
 
+  // Batch Processing Handlers
+  const handleOpenBatchModal = () => {
+    setPendingBatchFoods([
+      { foodName: "", referenceQuantity: 100, referenceUnit: "g" }
+    ]);
+    setBatchInputText("");
+    setBatchResults(null);
+    setBatchProgress({ current: 0, total: 0, text: "" });
+    setBatchModalOpen(true);
+  };
+
+  const handleAddBatchRow = () => {
+    setPendingBatchFoods([
+      ...pendingBatchFoods,
+      { foodName: "", referenceQuantity: 100, referenceUnit: "g" }
+    ]);
+  };
+
+  const handleRemoveBatchRow = (index) => {
+    setPendingBatchFoods(pendingBatchFoods.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateBatchRow = (index, field, val) => {
+    const updated = [...pendingBatchFoods];
+    updated[index][field] = val;
+    setPendingBatchFoods(updated);
+  };
+
+  const handleParseBatchText = () => {
+    if (!batchInputText.trim()) return;
+    const lines = batchInputText.split("\n").map(l => l.trim()).filter(Boolean);
+    const parsed = lines.map(line => {
+      // Check if line contains qty/unit e.g. "Chicken Breast 150g" or "Oats 50g"
+      const match = line.match(/^(.+?)\s+(\d+)\s*(g|ml|piece|cup|oz|tbsp|serving)?$/i);
+      if (match) {
+        return {
+          foodName: match[1].trim(),
+          referenceQuantity: parseInt(match[2]) || 100,
+          referenceUnit: match[3] ? match[3].toLowerCase() : "g"
+        };
+      }
+      return { foodName: line, referenceQuantity: 100, referenceUnit: "g" };
+    });
+
+    setPendingBatchFoods(parsed);
+  };
+
+  const handleExecuteBatchFetch = async () => {
+    const validFoods = pendingBatchFoods.filter(f => f.foodName && f.foodName.trim());
+    if (validFoods.length === 0) return;
+
+    setBatchProcessing(true);
+    setBatchResults(null);
+
+    const uid = currentUser ? currentUser.uid : null;
+    const results = await fetchNutritionBatchWithQueue(uid, validFoods, (progress) => {
+      setBatchProgress(progress);
+    });
+
+    setBatchResults(results);
+    setBatchProcessing(false);
+  };
+
+  const handleSaveAllBatchResults = async () => {
+    if (!batchResults || batchResults.length === 0) return;
+    const itemsToSave = batchResults.map(item => {
+      const isVeg = !["meat", "seafood"].includes(item.foodType);
+      return {
+        foodName: item.foodName,
+        name: item.foodName,
+        referenceQuantity: Number(item.referenceQuantity) || 100,
+        referenceUnit: item.referenceUnit || "g",
+        serving: `${item.referenceQuantity || 100}${item.referenceUnit || "g"}`,
+        protein: Number(item.protein) || 0,
+        fat: Number(item.fat) || 0,
+        carbs: Number(item.carbs) || 0,
+        fiber: Number(item.fiber) || 0,
+        calories: Number(item.calories) || Math.round((Number(item.protein) || 0) * 4),
+        foodType: item.foodType || "protein",
+        categoryTag: (item.foodType || "PROTEIN").toUpperCase(),
+        isVeg: isVeg,
+        category: isVeg ? "veg" : "nonveg",
+        aiGenerated: item.source === "gemini_ai",
+        source: item.source || "gemini_ai",
+        confidence: item.confidence || 0.95,
+        verified: true
+      };
+    });
+
+    await addBatchFoodRefs(itemsToSave);
+    setBatchModalOpen(false);
+  };
+
   const getCategoryMeta = (food) => {
     const isVeg = isVegFood(food);
     const proteinVal = food.protein || 0;
+    const type = (food.foodType || food.category || "").toLowerCase();
     const foodTitle = (food.foodName || food.name || "").toLowerCase();
 
-    if (food.category === "dairy" || foodTitle.includes("milk") || foodTitle.includes("paneer")) {
+    if (type === "dairy" || foodTitle.includes("milk") || foodTitle.includes("paneer")) {
       return { label: isVeg ? "Dairy (Veg)" : "Dairy", icon: <Milk size={18} color="var(--accent-blue)" />, badgeClass: "muscle-pull" };
     }
-    if (food.category === "grains" || foodTitle.includes("oats") || foodTitle.includes("chana")) {
+    if (type === "grain" || type === "grains" || foodTitle.includes("oats") || foodTitle.includes("chana")) {
       return { label: "Grains", icon: <Wheat size={18} color="var(--accent-abs)" />, badgeClass: "muscle-abs" };
     }
-    if (food.category === "fruits" || foodTitle.includes("banana") || foodTitle.includes("apple")) {
+    if (type === "fruit" || type === "vegetable" || type === "fruits" || foodTitle.includes("banana") || foodTitle.includes("apple")) {
       return { label: "Fruit/Veg", icon: <Apple size={18} color="var(--accent-legs)" />, badgeClass: "muscle-legs" };
     }
-    if (proteinVal >= 25) {
+    if (proteinVal >= 25 || type === "protein" || type === "meat" || type === "seafood") {
       return { label: "High Protein", icon: <Flame size={18} color="var(--accent-protein)" />, badgeClass: "muscle-push" };
     }
     if (isVeg) {
@@ -230,8 +357,8 @@ export default function FoodReference() {
         </p>
       </div>
 
-      <div className="search-toolbar-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
-        <div className="premium-input-box" style={{ flex: 1 }}>
+      <div className="search-toolbar-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <div className="premium-input-box" style={{ flex: 1, minWidth: "220px" }}>
           <Search size={18} color="var(--text-secondary)" style={{ marginRight: "10px" }} />
           <input 
             type="text" 
@@ -242,9 +369,15 @@ export default function FoodReference() {
           />
         </div>
 
-        <button className="btn-premium-primary" onClick={handleOpenAdd}>
-          <Plus size={18} /> Add Food
-        </button>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button className="btn-premium-secondary" onClick={handleOpenBatchModal} style={{ gap: "6px" }}>
+            <Layers size={18} color="var(--accent-protein)" /> Batch Fetch
+          </button>
+
+          <button className="btn-premium-primary" onClick={handleOpenAdd}>
+            <Plus size={18} /> Add Food
+          </button>
+        </div>
       </div>
 
       {/* Category Filter Chips Bar */}
@@ -304,10 +437,26 @@ export default function FoodReference() {
                     </span>
                   </div>
                 </div>
+
+                {/* Macro Profile Breakdown Row */}
+                <div style={{ display: "flex", gap: "12px", marginTop: "12px", padding: "8px 12px", background: "var(--bg-secondary)", borderRadius: "10px", fontSize: "0.75rem" }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>FAT</span>
+                    <strong style={{ color: "var(--text-primary)" }}>{food.fat ?? 0}g</strong>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>CARBS</span>
+                    <strong style={{ color: "var(--text-primary)" }}>{food.carbs ?? 0}g</strong>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>FIBER</span>
+                    <strong style={{ color: "var(--text-primary)" }}>{food.fiber ?? 0}g</strong>
+                  </div>
+                </div>
               </div>
 
               {/* Actions & Category Badge Footer Row */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border-color)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--border-color)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <span className={`exercise-badge-muscle ${meta.badgeClass}`} style={{ fontSize: "0.6rem", margin: 0 }}>
                     {meta.label}
@@ -315,6 +464,11 @@ export default function FoodReference() {
                   {food.aiGenerated && (
                     <span style={{ fontSize: "0.55rem", background: "rgba(168, 85, 247, 0.15)", color: "var(--accent-protein)", border: "1px solid var(--accent-protein)", padding: "2px 6px", borderRadius: "8px", fontWeight: "700", display: "flex", alignItems: "center", gap: "3px" }}>
                       <Sparkles size={10} /> AI
+                    </span>
+                  )}
+                  {food.source === "cache" && (
+                    <span style={{ fontSize: "0.55rem", background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-blue)", border: "1px solid var(--accent-blue)", padding: "2px 6px", borderRadius: "8px", fontWeight: "700", display: "flex", alignItems: "center", gap: "3px" }}>
+                      <Zap size={10} /> Cache
                     </span>
                   )}
                 </div>
@@ -353,7 +507,7 @@ export default function FoodReference() {
       {/* Add / Edit Food Modal Dialog */}
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px" }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "540px" }}>
             <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
               <span className="nothing-title" style={{ fontSize: "1.1rem" }}>
                 {isEditing ? "Edit Food Entry" : "Create Master Food Entry"}
@@ -371,7 +525,7 @@ export default function FoodReference() {
                   <input 
                     type="text" 
                     className="premium-inner-input" 
-                    placeholder="e.g. Chicken Breast, Paneer, Milk, Banana"
+                    placeholder="e.g. Chicken Breast, Paneer, Milk, Oats"
                     value={foodName}
                     onChange={(e) => setFoodName(e.target.value)}
                     required
@@ -410,87 +564,134 @@ export default function FoodReference() {
                 </div>
               </div>
 
-              {/* "Analyze with AI" Action Trigger Button */}
+              {/* "Fetch Details" Action Trigger Button */}
               <button 
                 type="button" 
                 className="btn-premium-secondary" 
-                onClick={handleAnalyzeWithAI}
+                onClick={handleFetchDetails}
                 disabled={isAnalyzing}
                 style={{ height: "44px", border: "1px solid var(--accent-protein)", color: "var(--accent-protein)", justifyContent: "center" }}
               >
                 <Sparkles size={16} />
-                {isAnalyzing ? "Estimating with Gemini AI..." : "Analyze with AI"}
+                {isAnalyzing ? "Fetching Details..." : "Fetch Details"}
               </button>
 
               {/* AI Loading State Banner */}
               {isAnalyzing && (
                 <div style={{ background: "rgba(168, 85, 247, 0.1)", border: "1px solid var(--accent-protein)", color: "var(--accent-protein)", padding: "12px", borderRadius: "12px", fontSize: "0.85rem", fontWeight: "600", display: "flex", alignItems: "center", gap: "10px", justifyContent: "center" }}>
-                  <Sparkles className="spin-slow" size={18} /> ✨ Estimating nutrition with Gemini AI...
+                  <Sparkles className="spin-slow" size={18} /> ✨ Fetching nutrition profile via Gemini AI...
                 </div>
               )}
 
-              {/* AI Preview Box */}
+              {/* AI / Cache Preview Box */}
               {aiPreview && !isAnalyzing && (
                 <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--accent-protein)", padding: "14px", borderRadius: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.8rem", fontWeight: "800", color: "var(--accent-protein)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      {aiPreview.cached ? <Zap size={14} /> : <Sparkles size={14} />} 
-                      {aiPreview.cached ? "Loaded from Master Cache" : "Gemini AI Nutrition Preview"}
+                      {aiPreview.source === "cache" ? <Zap size={14} /> : <Sparkles size={14} />} 
+                      {aiPreview.source === "cache" ? "Loaded from Master Cache" : "Gemini AI Nutrition Preview"}
                     </span>
                     <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-                      Confidence: {Math.round((aiPreview.confidence || 0.9) * 100)}%
+                      Confidence: {Math.round((aiPreview.confidence || 0.95) * 100)}%
                     </span>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div style={{ background: "var(--bg-card)", padding: "10px", borderRadius: "10px" }}>
-                      <span className="nothing-label" style={{ fontSize: "0.6rem" }}>ESTIMATED PROTEIN</span>
-                      <div style={{ fontSize: "1.2rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.protein}g</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>PROTEIN</span>
+                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.protein}g</div>
                     </div>
 
-                    <div style={{ background: "var(--bg-card)", padding: "10px", borderRadius: "10px" }}>
-                      <span className="nothing-label" style={{ fontSize: "0.6rem" }}>ESTIMATED CALORIES</span>
-                      <div style={{ fontSize: "1.2rem", fontWeight: "900", color: "var(--accent-push)" }}>{aiPreview.calories} kcal</div>
+                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>FAT</span>
+                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.fat ?? 0}g</div>
+                    </div>
+
+                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>CARBS</span>
+                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.carbs ?? 0}g</div>
+                    </div>
+
+                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>FIBER</span>
+                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.fiber ?? 0}g</div>
+                    </div>
+
+                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center", gridColumn: "span 2" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>CALORIES</span>
+                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--accent-push)" }}>{aiPreview.calories} kcal</div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Error / Low Confidence Alert */}
+              {/* Error Alert */}
               {aiError && (
                 <div className="auth-error-msg" style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
                   <AlertCircle size={16} /> {aiError}
                 </div>
               )}
 
-              {/* Protein & Calories Numeric Preview / Edit Inputs */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>PROTEIN (GRAMS)</label>
-                  <div className="premium-input-box">
-                    <input 
-                      type="number" 
-                      className="premium-inner-input" 
-                      value={protein}
-                      onChange={(e) => setProtein(e.target.value)}
-                      required
-                    />
-                    <span className="premium-input-unit">g</span>
-                  </div>
+              {/* Manual Macro Customization Controls Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>PROTEIN (g)</label>
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
+                    value={protein}
+                    onChange={(e) => setProtein(e.target.value)}
+                    required
+                  />
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>CALORIES (KCAL)</label>
-                  <div className="premium-input-box">
-                    <input 
-                      type="number" 
-                      className="premium-inner-input" 
-                      value={calories}
-                      onChange={(e) => setCalories(e.target.value)}
-                      required
-                    />
-                    <span className="premium-input-unit">kcal</span>
-                  </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>FAT (g)</label>
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
+                    value={fat}
+                    onChange={(e) => setFat(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>CARBS (g)</label>
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
+                    value={carbs}
+                    onChange={(e) => setCarbs(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>FIBER (g)</label>
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
+                    value={fiber}
+                    onChange={(e) => setFiber(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", gridColumn: "span 2" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.6rem" }}>CALORIES (kcal)</label>
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    style={{ background: "var(--bg-secondary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--border-color)" }}
+                    value={calories}
+                    onChange={(e) => setCalories(e.target.value)}
+                    required
+                  />
                 </div>
               </div>
 
@@ -501,7 +702,7 @@ export default function FoodReference() {
                   <button
                     type="button"
                     className="btn-premium-secondary"
-                    style={{ flex: 1, height: "42px", background: isVegOption ? "var(--text-primary)" : "transparent", color: isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
+                    style={{ flex: 1, height: "40px", background: isVegOption ? "var(--text-primary)" : "transparent", color: isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
                     onClick={() => setIsVegOption(true)}
                   >
                     Vegetarian
@@ -509,7 +710,7 @@ export default function FoodReference() {
                   <button
                     type="button"
                     className="btn-premium-secondary"
-                    style={{ flex: 1, height: "42px", background: !isVegOption ? "var(--text-primary)" : "transparent", color: !isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
+                    style={{ flex: 1, height: "40px", background: !isVegOption ? "var(--text-primary)" : "transparent", color: !isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
                     onClick={() => setIsVegOption(false)}
                   >
                     Non-Veg
@@ -521,6 +722,219 @@ export default function FoodReference() {
                 {isEditing ? "Save Entry Changes" : "Save to Master Food Library"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Food Processing Modal Dialog */}
+      {batchModalOpen && (
+        <div className="modal-overlay" onClick={() => !batchProcessing && setBatchModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "680px" }}>
+            <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Layers size={22} color="var(--accent-protein)" />
+                <span className="nothing-title" style={{ fontSize: "1.2rem" }}>
+                  Batch Fetch Food Nutrition
+                </span>
+              </div>
+              {!batchProcessing && (
+                <button className="header-action-btn" onClick={() => setBatchModalOpen(false)}>
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+
+            {/* Step 1: Bulk Paste or Add Row Input */}
+            {!batchResults && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* Bulk Paste Box */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>
+                    BULK PASTE FOODS (ONE PER LINE, OPTIONAL QTY E.G. "Oats 50g")
+                  </label>
+                  <textarea 
+                    rows={3} 
+                    className="premium-inner-input"
+                    style={{ background: "var(--bg-secondary)", padding: "10px", borderRadius: "10px", border: "1px solid var(--border-color)", resize: "vertical" }}
+                    placeholder="Chicken Breast 150g&#10;Paneer 100g&#10;Banana 1 piece&#10;Almonds 30g"
+                    value={batchInputText}
+                    onChange={(e) => setBatchInputText(e.target.value)}
+                  />
+                  <button 
+                    type="button" 
+                    className="btn-premium-secondary" 
+                    style={{ alignSelf: "flex-end", height: "32px", fontSize: "0.75rem" }}
+                    onClick={handleParseBatchText}
+                  >
+                    Parse Bulk Text
+                  </button>
+                </div>
+
+                {/* Queue Items Table */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "260px", overflowY: "auto" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>
+                    PENDING FOOD QUEUE ({pendingBatchFoods.length} ITEMS)
+                  </label>
+
+                  {pendingBatchFoods.map((item, idx) => (
+                    <div key={idx} style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                      <div className="premium-input-box" style={{ flex: 2 }}>
+                        <input 
+                          type="text" 
+                          className="premium-inner-input" 
+                          placeholder={`Food Name #${idx + 1}`}
+                          value={item.foodName}
+                          onChange={(e) => handleUpdateBatchRow(idx, "foodName", e.target.value)}
+                          disabled={batchProcessing}
+                        />
+                      </div>
+
+                      <div className="premium-input-box" style={{ flex: 1, maxWidth: "90px" }}>
+                        <input 
+                          type="number" 
+                          className="premium-inner-input" 
+                          placeholder="100"
+                          value={item.referenceQuantity}
+                          onChange={(e) => handleUpdateBatchRow(idx, "referenceQuantity", Math.max(1, parseInt(e.target.value) || 1))}
+                          disabled={batchProcessing}
+                        />
+                      </div>
+
+                      <select 
+                        className="premium-input-box"
+                        style={{ width: "80px", height: "42px", background: "var(--bg-secondary)", padding: "0 8px", fontSize: "0.8rem", fontWeight: "700" }}
+                        value={item.referenceUnit}
+                        onChange={(e) => handleUpdateBatchRow(idx, "referenceUnit", e.target.value)}
+                        disabled={batchProcessing}
+                      >
+                        {UNIT_OPTIONS.map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+
+                      {pendingBatchFoods.length > 1 && !batchProcessing && (
+                        <button 
+                          className="icon-action-btn delete-btn" 
+                          onClick={() => handleRemoveBatchRow(idx)}
+                          title="Remove item"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <button 
+                    type="button" 
+                    className="btn-premium-secondary" 
+                    onClick={handleAddBatchRow}
+                    disabled={batchProcessing}
+                    style={{ height: "36px", fontSize: "0.8rem" }}
+                  >
+                    <Plus size={14} /> Add Another Row
+                  </button>
+
+                  <button 
+                    type="button" 
+                    className="btn-premium-primary" 
+                    onClick={handleExecuteBatchFetch}
+                    disabled={batchProcessing || pendingBatchFoods.filter(f => f.foodName.trim()).length === 0}
+                    style={{ height: "42px", padding: "0 24px" }}
+                  >
+                    <Sparkles size={16} /> Fetch Details ({pendingBatchFoods.filter(f => f.foodName.trim()).length})
+                  </button>
+                </div>
+
+                {/* Batch Processing Live Progress Bar */}
+                {batchProcessing && (
+                  <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--accent-protein)", padding: "16px", borderRadius: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: "700", color: "var(--accent-protein)", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <RefreshCw className="spin-slow" size={18} /> {batchProgress.text || "Analyzing..."}
+                      </span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: "800" }}>
+                        {batchProgress.current} / {batchProgress.total}
+                      </span>
+                    </div>
+
+                    <div style={{ width: "100%", height: "8px", background: "var(--bg-card)", borderRadius: "4px", overflow: "hidden" }}>
+                      <div 
+                        style={{ 
+                          height: "100%", 
+                          background: "var(--accent-protein)", 
+                          width: `${Math.round((batchProgress.current / Math.max(1, batchProgress.total)) * 100)}%`,
+                          transition: "width 0.3s ease"
+                        }} 
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2: Batch Results Preview & Confirmation */}
+            {batchResults && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div style={{ background: "rgba(34, 197, 94, 0.1)", border: "1px solid var(--accent-success)", color: "var(--accent-success)", padding: "12px", borderRadius: "12px", fontWeight: "700", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <Check size={18} /> Batch Fetch Complete! Review estimated values before saving.
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "360px", overflowY: "auto" }}>
+                  {batchResults.map((res, i) => (
+                    <div key={i} style={{ background: "var(--bg-secondary)", padding: "12px 14px", borderRadius: "12px", border: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+                      <div>
+                        <div style={{ fontWeight: "800", fontSize: "0.95rem" }}>{res.foodName}</div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                          Ref: {res.referenceQuantity}{res.referenceUnit} | Type: {res.foodType || "protein"}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                        <div style={{ textAlign: "right" }}>
+                          <span style={{ fontWeight: "900", fontFamily: "var(--font-mono)", color: "var(--text-primary)", fontSize: "1rem" }}>
+                            {res.protein}g P
+                          </span>
+                          <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
+                            F:{res.fat ?? 0}g | C:{res.carbs ?? 0}g | {res.calories} kcal
+                          </div>
+                        </div>
+
+                        {res.source === "cache" ? (
+                          <span style={{ fontSize: "0.6rem", background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-blue)", padding: "3px 8px", borderRadius: "8px", fontWeight: "700" }}>
+                            Cache
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: "0.6rem", background: "rgba(168, 85, 247, 0.15)", color: "var(--accent-protein)", padding: "3px 8px", borderRadius: "8px", fontWeight: "700" }}>
+                            Gemini AI
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                  <button 
+                    type="button" 
+                    className="btn-premium-secondary" 
+                    onClick={() => setBatchResults(null)}
+                  >
+                    Back to Queue
+                  </button>
+
+                  <button 
+                    type="button" 
+                    className="btn-premium-primary" 
+                    onClick={handleSaveAllBatchResults}
+                    style={{ padding: "0 24px" }}
+                  >
+                    Save All to Master Library ({batchResults.length})
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

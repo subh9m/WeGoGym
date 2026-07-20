@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { 
   doc, 
   setDoc, 
@@ -6,8 +6,7 @@ import {
   onSnapshot, 
   updateDoc, 
   deleteDoc, 
-  addDoc,
-  getDoc
+  addDoc
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "./AuthContext";
@@ -892,8 +891,17 @@ export function PlannerProvider({ children }) {
       referenceQuantity: 100,
       referenceUnit: "g",
       protein: parseInt(protein) || 0,
+      fat: 0,
+      carbs: 0,
+      fiber: 0,
       calories: Math.round((parseInt(protein) || 0) * 4)
     };
+
+    const prot = Number(payload.protein) || 0;
+    const fat = Number(payload.fat) || 0;
+    const carbs = Number(payload.carbs) || 0;
+    const fiber = Number(payload.fiber) || 0;
+    const cals = Number(payload.calories) || Math.round(prot * 4 + carbs * 4 + fat * 9);
 
     const docData = {
       foodName: payload.foodName || payload.name || "Item",
@@ -901,18 +909,31 @@ export function PlannerProvider({ children }) {
       referenceQuantity: Number(payload.referenceQuantity) || 100,
       referenceUnit: payload.referenceUnit || "g",
       serving: payload.serving || `${payload.referenceQuantity || 100}${payload.referenceUnit || "g"}`,
-      protein: Number(payload.protein) || 0,
-      calories: Number(payload.calories) || Math.round((Number(payload.protein) || 0) * 4),
-      categoryTag: payload.categoryTag || "Protein",
-      isVeg: Boolean(payload.isVeg),
+      protein: prot,
+      fat: fat,
+      carbs: carbs,
+      fiber: fiber,
+      calories: cals,
+      foodType: payload.foodType || payload.categoryTag || "protein",
+      categoryTag: payload.categoryTag || payload.foodType || "Protein",
+      isVeg: Boolean(payload.isVeg !== undefined ? payload.isVeg : payload.category === "veg"),
       category: payload.category || (payload.isVeg ? "veg" : "nonveg"),
       aiGenerated: Boolean(payload.aiGenerated),
       confidence: Number(payload.confidence) || 1.0,
-      createdAt: new Date().toISOString(),
+      source: payload.source || (payload.aiGenerated ? "gemini_ai" : "manual"),
+      verified: Boolean(payload.verified ?? !payload.aiGenerated),
+      createdAt: payload.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     await addDoc(foodRefColRef, docData);
+  };
+
+  const addBatchFoodRefs = async (foodsArray = []) => {
+    if (!currentUser || !Array.isArray(foodsArray) || foodsArray.length === 0) return;
+    for (const foodItem of foodsArray) {
+      await addFoodRef(foodItem);
+    }
   };
 
   const editFoodRef = async (foodId, dataOrName, serving, protein) => {
@@ -927,8 +948,17 @@ export function PlannerProvider({ children }) {
       referenceQuantity: 100,
       referenceUnit: "g",
       protein: parseInt(protein) || 0,
+      fat: 0,
+      carbs: 0,
+      fiber: 0,
       calories: Math.round((parseInt(protein) || 0) * 4)
     };
+
+    const prot = Number(payload.protein) || 0;
+    const fat = Number(payload.fat) || 0;
+    const carbs = Number(payload.carbs) || 0;
+    const fiber = Number(payload.fiber) || 0;
+    const cals = Number(payload.calories) || Math.round(prot * 4 + carbs * 4 + fat * 9);
 
     const updateData = {
       foodName: payload.foodName || payload.name,
@@ -936,13 +966,19 @@ export function PlannerProvider({ children }) {
       referenceQuantity: Number(payload.referenceQuantity) || 100,
       referenceUnit: payload.referenceUnit || "g",
       serving: payload.serving || `${payload.referenceQuantity || 100}${payload.referenceUnit || "g"}`,
-      protein: Number(payload.protein) || 0,
-      calories: Number(payload.calories) || Math.round((Number(payload.protein) || 0) * 4),
-      categoryTag: payload.categoryTag || "Protein",
-      isVeg: Boolean(payload.isVeg),
+      protein: prot,
+      fat: fat,
+      carbs: carbs,
+      fiber: fiber,
+      calories: cals,
+      foodType: payload.foodType || payload.categoryTag || "protein",
+      categoryTag: payload.categoryTag || payload.foodType || "Protein",
+      isVeg: Boolean(payload.isVeg !== undefined ? payload.isVeg : payload.category === "veg"),
       category: payload.category || (payload.isVeg ? "veg" : "nonveg"),
       aiGenerated: Boolean(payload.aiGenerated),
       confidence: Number(payload.confidence) || 1.0,
+      source: payload.source || (payload.aiGenerated ? "gemini_ai" : "manual"),
+      verified: Boolean(payload.verified ?? !payload.aiGenerated),
       updatedAt: new Date().toISOString()
     };
 
@@ -1027,6 +1063,7 @@ export function PlannerProvider({ children }) {
     removeFoodFromMeal,
     updateFoodQuantity,
     addFoodRef,
+    addBatchFoodRefs,
     editFoodRef,
     deleteFoodRef,
     updateProteinTarget,

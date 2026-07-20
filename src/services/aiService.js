@@ -1,38 +1,36 @@
 /**
- * WeGoGym AI Service - Google Gemini Nutrition Estimator
- * Security Features:
- * 1. Primary: Invokes Firebase HTTPS Callable Cloud Function `analyzeFood` (Zero client keys).
- * 2. Secondary: Checks Firestore Master Cache before making API requests.
- * 3. Fallback: Dynamic runtime key resolution without static string literal exposure.
+ * WeGoGym AI Service - Master Nutrition Estimator & Cache Engine
+ * Features:
+ * 1. Normalized Cache Check: Queries Firestore `foodReference` before invoking Gemini API.
+ * 2. Primary Execution: Calls Firebase HTTPS Callable Cloud Function `fetchNutritionBatch` (zero client key exposure).
+ * 3. Batch Processing Queue: Processes lists of foods with concurrency limit (3-5), reporting live progress.
+ * 4. Fallback Rotation: Round-robin REST API rotation using exponential backoff when Cloud Function is unreachable.
  */
 
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, getDocs } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "../firebase";
 
 let roundRobinIndex = 0;
 
-// Encoded candidates for safe fallback execution
-const OBFUSCATED_KEYS = [
-  "QVEuQWI4Uk42SmcwQnlHTzg1cGxHTlVaUE55eHdKUFEtNXgtQVlNU19OTUpOVkp5dVIxLUE=",
-  "QVEuQWI4Uk42TG9jQmhnQnhXOXlOazh5V3dQOXdFekk1eEhoZElkSTg1NThNd1RlayNVcWc=",
-  "QVEuQWI4Uk42THNtZzBCOVJiejF4SGFpckJBWXJwZTJra0FHbktDWVVCUGpiaThtY2I2TXc=",
-  "QVEuQWI4Uk42TDBPUktQUTFnd1JQSG8tb0ZyQjdibWZtTHJVS2NxRUVQbTBUblp0d0lHMjF3",
-  "QVEuQWI4Uk42TEIzWWhSLWtZOG85WHpaYWhjcFlxT0xDdElUU1pZRVh3bzJCT3VBTEZBZUE="
-];
+/**
+ * Text Normalization Helper
+ * lowercase, trim, collapse duplicate spaces
+ */
+export function normalizeFoodName(name) {
+  if (!name) return "";
+  return String(name)
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
 
 function getResolvedKeys() {
   const envKeysString = import.meta.env.VITE_GEMINI_API_KEYS || import.meta.env.VITE_GEMINI_API_KEY || "";
   if (envKeysString) {
     return envKeysString.split(",").map(k => k.trim()).filter(Boolean);
   }
-  return OBFUSCATED_KEYS.map(encoded => {
-    try {
-      return atob(encoded);
-    } catch (e) {
-      return null;
-    }
-  }).filter(Boolean);
+  return [];
 }
 
 function getNextRoundRobinKey(keysList) {
@@ -51,45 +49,66 @@ function cleanJsonResponse(text) {
 }
 
 /**
- * 1. Cache Check in Firestore foodReference collection
+ * 1. Firestore Cache Check
+ * Checks if normalized food name, reference quantity, and reference unit already exist in Firestore.
  */
-export async function checkNutritionCache(userId, foodName, quantity, unit) {
+export async function checkNutritionCache(userId, foodName, quantity = 100, unit = "g") {
   if (!userId || !foodName) return null;
+
+  const targetNameNorm = normalizeFoodName(foodName);
+  const targetQty = Number(quantity) || 100;
+  const targetUnitNorm = normalizeFoodName(unit);
+
   try {
     const foodRefCol = collection(db, "users", userId, "foodReference");
-    const q = query(foodRefCol, where("name", "==", foodName.trim()));
-    const querySnap = await getDocs(q);
+    const querySnap = await getDocs(query(foodRefCol));
 
-    let match = null;
+    let bestMatch = null;
+
     querySnap.forEach((docSnap) => {
       const data = docSnap.data();
-      const refQty = Number(data.referenceQuantity || parseInt(data.serving) || 100);
-      const refUnit = (data.referenceUnit || data.serving || "").toString().toLowerCase();
-      
+      const docNameNorm = normalizeFoodName(data.foodName || data.name);
+      const docQty = Number(data.referenceQuantity || parseInt(data.serving) || 100);
+      const docUnitNorm = normalizeFoodName(data.referenceUnit || data.serving || "g");
+
       if (
-        data.name.toLowerCase() === foodName.trim().toLowerCase() &&
-        (refQty === Number(quantity) || refUnit.includes(unit.toLowerCase()))
+        docNameNorm === targetNameNorm &&
+        (docQty === targetQty || docUnitNorm.includes(targetUnitNorm) || targetUnitNorm.includes(docUnitNorm))
       ) {
-        match = {
-          protein: Number(data.protein) || 0,
-          calories: Number(data.calories) || Math.round(Number(data.protein) * 4),
+        const protein = Number(data.protein) || 0;
+        const fat = Number(data.fat) || 0;
+        const carbs = Number(data.carbs) || 0;
+        const fiber = Number(data.fiber) || 0;
+        const calories = Number(data.calories) || Math.round(protein * 4 + carbs * 4 + fat * 9);
+
+        bestMatch = {
+          foodName: data.foodName || data.name,
+          referenceQuantity: docQty,
+          referenceUnit: data.referenceUnit || unit,
+          protein,
+          fat,
+          carbs,
+          fiber,
+          calories,
+          foodType: data.foodType || data.categoryTag || "protein",
           confidence: 1.0,
-          cached: true
+          cached: true,
+          source: "cache"
         };
       }
     });
 
-    return match;
+    return bestMatch;
   } catch (err) {
-    console.warn("[AI Service] Cache lookup bypassed:", err);
+    console.warn("[AI Service] Cache lookup bypassed due to error:", err);
     return null;
   }
 }
 
 /**
- * 2. Execute Direct REST API Prompt Request
+ * 2. REST API Direct Call (Fallback method when Cloud Function is unreachable)
  */
-async function callGeminiAPI(apiKey, promptText) {
+async function callGeminiDirectREST(apiKey, promptText) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   const response = await fetch(url, {
     method: "POST",
@@ -118,50 +137,53 @@ async function callGeminiAPI(apiKey, promptText) {
 }
 
 /**
- * 3. Master Function: Analyze Food with Firebase Cloud Function & Gemini AI
+ * 3. Single Item Fetch: fetchNutritionDetails
+ * Cache First -> Firebase Cloud Function -> Direct REST API Key Rotation
  */
-export async function analyzeFoodWithGemini(userId, foodName, quantity, unit) {
+export async function fetchNutritionDetails(userId, foodName, quantity = 100, unit = "g") {
   const sanitizedName = foodName.trim();
   const sanitizedQty = Number(quantity) || 100;
   const sanitizedUnit = (unit || "g").trim();
 
-  // Step A: Check Firestore Cache first
+  // Step A: Check Master Cache
   if (userId) {
     const cachedResult = await checkNutritionCache(userId, sanitizedName, sanitizedQty, sanitizedUnit);
     if (cachedResult) {
-      console.log("[AI Service] Cache hit! Reusing existing Firestore values:", cachedResult);
+      console.log("[AI Service] Master Cache Hit! Reusing stored values for:", sanitizedName);
       return cachedResult;
     }
   }
 
-  // Step B: Try Primary Method — Firebase HTTPS Callable Cloud Function
+  // Step B: Firebase Callable Cloud Function (fetchNutritionBatch)
   try {
-    const analyzeFoodFn = httpsCallable(functions, "analyzeFood");
-    const cloudRes = await analyzeFoodFn({
-      foodName: sanitizedName,
-      referenceQuantity: sanitizedQty,
-      referenceUnit: sanitizedUnit
+    const fetchBatchFn = httpsCallable(functions, "fetchNutritionBatch");
+    const cloudRes = await fetchBatchFn({
+      foods: [{ foodName: sanitizedName, referenceQuantity: sanitizedQty, referenceUnit: sanitizedUnit }]
     });
 
-    if (cloudRes.data && cloudRes.data.success && cloudRes.data.data) {
-      console.log("[AI Service] Successfully analyzed via Firebase Cloud Function!");
-      const d = cloudRes.data.data;
+    const itemResult = cloudRes?.data?.results?.[0];
+    if (itemResult && !itemResult.error) {
+      console.log("[AI Service] Analyzed via Firebase Cloud Function!");
       return {
-        foodName: d.foodName || sanitizedName,
-        referenceQuantity: Number(d.referenceQuantity) || sanitizedQty,
-        referenceUnit: d.referenceUnit || sanitizedUnit,
-        protein: Math.round(Number(d.protein) || 0),
-        calories: Math.round(Number(d.calories) || 0),
-        confidence: Number(d.confidence) || 0.95,
+        foodName: itemResult.foodName || sanitizedName,
+        referenceQuantity: Number(itemResult.referenceQuantity) || sanitizedQty,
+        referenceUnit: itemResult.referenceUnit || sanitizedUnit,
+        protein: Math.round(Number(itemResult.protein) || 0),
+        fat: Math.round(Number(itemResult.fat) || 0),
+        carbs: Math.round(Number(itemResult.carbs) || 0),
+        fiber: Math.round(Number(itemResult.fiber) || 0),
+        calories: Math.round(Number(itemResult.calories) || 0),
+        foodType: itemResult.foodType || "protein",
+        confidence: Number(itemResult.confidence) || 0.95,
         cached: false,
-        lowConfidenceWarning: Number(d.confidence) < 0.60 ? "AI is not confident. Please verify the food." : null
+        source: "gemini_ai"
       };
     }
   } catch (cloudErr) {
-    console.warn("[AI Service] Firebase Cloud Function not reachable, attempting client round-robin fallback:", cloudErr.message);
+    console.warn("[AI Service] Cloud Function unreachable, attempting REST fallback:", cloudErr.message);
   }
 
-  // Step C: Fallback Method — Round-Robin REST API rotation
+  // Step C: Fallback Method — Client REST API Rotation
   const keysList = getResolvedKeys();
   if (!keysList || keysList.length === 0) {
     throw new Error("Gemini API key is missing.");
@@ -169,35 +191,24 @@ export async function analyzeFoodWithGemini(userId, foodName, quantity, unit) {
 
   const promptText = `
 You are a certified sports nutrition expert.
+Estimate standard nutritional values for the following food item:
+Food Name: ${sanitizedName}
+Reference Quantity: ${sanitizedQty}
+Reference Unit: ${sanitizedUnit}
 
-Estimate the nutritional values for the following food.
-
-Food Name:
-${sanitizedName}
-
-Reference Quantity:
-${sanitizedQty}
-
-Reference Unit:
-${sanitizedUnit}
-
-Return ONLY valid JSON.
-
+Respond ONLY with valid JSON:
 {
-"foodName":"",
-"referenceQuantity":0,
-"referenceUnit":"",
-"protein":0,
-"calories":0,
-"confidence":0.0
+  "foodName": "${sanitizedName}",
+  "referenceQuantity": ${sanitizedQty},
+  "referenceUnit": "${sanitizedUnit}",
+  "protein": 0,
+  "fat": 0,
+  "carbs": 0,
+  "fiber": 0,
+  "calories": 0,
+  "foodType": "protein|grain|dairy|vegetable|fruit|meat|seafood|legumes|nuts|supplement|beverage|snack",
+  "confidence": 0.95
 }
-
-Rules:
-Use standard nutritional values.
-Scale values according to quantity.
-Return ONLY JSON.
-No markdown.
-No explanation.
 `.trim();
 
   let lastError = null;
@@ -206,13 +217,12 @@ No explanation.
   for (let i = 0; i < keysList.length; i++) {
     const selectedKey = getNextRoundRobinKey(keysList);
     try {
-      console.log(`[AI Service] Invoking Gemini REST API fallback via key #${(roundRobinIndex - 1 + keysList.length) % keysList.length + 1}...`);
-      parsed = await callGeminiAPI(selectedKey, promptText);
+      parsed = await callGeminiDirectREST(selectedKey, promptText);
       if (parsed && typeof parsed.protein !== "undefined") {
         break;
       }
     } catch (err) {
-      console.warn(`[AI Service] API key attempt failed:`, err);
+      console.warn(`[AI Service] API key fallback attempt failed:`, err.message);
       lastError = err;
     }
   }
@@ -222,17 +232,129 @@ No explanation.
   }
 
   const proteinVal = Math.max(0, Math.round(Number(parsed.protein) || 0));
-  const caloriesVal = Math.max(0, Math.round(Number(parsed.calories) || proteinVal * 4));
-  const confidenceVal = parseFloat(parsed.confidence) || 0.90;
+  const fatVal = Math.max(0, Math.round(Number(parsed.fat) || 0));
+  const carbsVal = Math.max(0, Math.round(Number(parsed.carbs) || 0));
+  const fiberVal = Math.max(0, Math.round(Number(parsed.fiber) || 0));
+  const caloriesVal = Math.max(0, Math.round(Number(parsed.calories) || (proteinVal * 4 + carbsVal * 4 + fatVal * 9)));
 
   return {
     foodName: parsed.foodName || sanitizedName,
     referenceQuantity: Number(parsed.referenceQuantity) || sanitizedQty,
     referenceUnit: parsed.referenceUnit || sanitizedUnit,
     protein: proteinVal,
+    fat: fatVal,
+    carbs: carbsVal,
+    fiber: fiberVal,
     calories: caloriesVal,
-    confidence: confidenceVal,
+    foodType: parsed.foodType || "protein",
+    confidence: parseFloat(parsed.confidence) || 0.90,
     cached: false,
-    lowConfidenceWarning: confidenceVal < 0.60 ? "AI is not confident. Please verify the food." : null
+    source: "gemini_ai"
   };
+}
+
+/**
+ * 4. Legacy Function Wrapper: analyzeFoodWithGemini
+ */
+export async function analyzeFoodWithGemini(userId, foodName, quantity, unit) {
+  return await fetchNutritionDetails(userId, foodName, quantity, unit);
+}
+
+/**
+ * 5. Batch Queue Processor: fetchNutritionBatchWithQueue
+ * Processes an array of pending foods.
+ * First checks cache. For uncached items, fetches via Cloud Function or controlled queue (concurrency 3-5).
+ * Invokes onProgress({ current, total, text }) callback.
+ */
+export async function fetchNutritionBatchWithQueue(userId, foodsList = [], onProgress = () => {}) {
+  if (!foodsList || foodsList.length === 0) return [];
+
+  const total = foodsList.length;
+  const processedResults = [];
+  const uncachedItems = [];
+
+  // Pass 1: Check cache for all items
+  onProgress({ current: 0, total, text: "Checking local cache..." });
+
+  for (let i = 0; i < foodsList.length; i++) {
+    const item = foodsList[i];
+    const name = item.foodName || item.name;
+    const qty = Number(item.referenceQuantity) || 100;
+    const unit = item.referenceUnit || "g";
+
+    let cachedMatch = null;
+    if (userId) {
+      cachedMatch = await checkNutritionCache(userId, name, qty, unit);
+    }
+
+    if (cachedMatch) {
+      processedResults.push({
+        ...item,
+        ...cachedMatch,
+        cached: true,
+        source: "cache"
+      });
+      onProgress({ current: processedResults.length, total, text: `Loaded ${name} from cache` });
+    } else {
+      uncachedItems.push({ index: i, item });
+    }
+  }
+
+  if (uncachedItems.length === 0) {
+    onProgress({ current: total, total, text: "Finished (All items loaded from cache)" });
+    return processedResults;
+  }
+
+  // Pass 2: Process uncached items with batch concurrency queue (concurrency 3)
+  const CONCURRENCY = 3;
+  let completedCount = processedResults.length;
+
+  for (let i = 0; i < uncachedItems.length; i += CONCURRENCY) {
+    const chunk = uncachedItems.slice(i, i + CONCURRENCY);
+
+    const chunkPromises = chunk.map(async ({ item }) => {
+      const name = item.foodName || item.name;
+      const qty = Number(item.referenceQuantity) || 100;
+      const unit = item.referenceUnit || "g";
+
+      try {
+        const result = await fetchNutritionDetails(userId, name, qty, unit);
+        return {
+          ...item,
+          ...result,
+          cached: false
+        };
+      } catch (err) {
+        console.error(`Batch fetch failed for item ${name}:`, err);
+        return {
+          ...item,
+          foodName: name,
+          referenceQuantity: qty,
+          referenceUnit: unit,
+          protein: 0,
+          fat: 0,
+          carbs: 0,
+          fiber: 0,
+          calories: 0,
+          foodType: "protein",
+          confidence: 0,
+          error: err.message || "Fetch failed",
+          cached: false
+        };
+      }
+    });
+
+    const chunkResults = await Promise.all(chunkPromises);
+    processedResults.push(...chunkResults);
+    completedCount += chunkResults.length;
+
+    onProgress({
+      current: completedCount,
+      total,
+      text: `Analyzing... ${completedCount} / ${total}`
+    });
+  }
+
+  onProgress({ current: total, total, text: "Finished" });
+  return processedResults;
 }

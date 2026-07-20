@@ -8,10 +8,8 @@ import {
   Flame, 
   Plus, 
   Search,
-  CheckCircle2,
   X,
-  Minus,
-  Zap
+  Minus
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -47,28 +45,44 @@ export default function Diet() {
   const dayDiet = diets[selectedDay] || { meals: { breakfast: [], lunch: [], snacks: [], dinner: [] } };
   const proteinTarget = profile?.proteinTarget || 100;
 
-  // Formula: (stored / referenceQuantity) * selectedQuantity
-  const getDayTotalProteinAndCalories = () => {
+  // Formula: (storedValue / referenceQuantity) * selectedQuantity
+  // Instant calculations with ZERO API calls
+  const getDayTotalNutrition = () => {
     let totalProtein = 0;
+    let totalFat = 0;
+    let totalCarbs = 0;
+    let totalFiber = 0;
     let totalCalories = 0;
+
     Object.keys(dayDiet.meals || {}).forEach((mealKey) => {
       (dayDiet.meals[mealKey] || []).forEach((item) => {
-        const storedProtein = Number(item.proteinPerServing ?? item.protein ?? 0);
-        const storedCalories = Number(item.calories ?? storedProtein * 4);
         const refQty = Number(item.referenceQuantity) || 1;
         const selQty = Number(item.quantity) || 1;
 
-        totalProtein += (storedProtein / refQty) * selQty;
-        totalCalories += (storedCalories / refQty) * selQty;
+        const storedP = Number(item.proteinPerServing ?? item.protein ?? 0);
+        const storedF = Number(item.fat ?? 0);
+        const storedC = Number(item.carbs ?? 0);
+        const storedFb = Number(item.fiber ?? 0);
+        const storedCal = Number(item.calories ?? (storedP * 4 + storedC * 4 + storedF * 9));
+
+        totalProtein += (storedP / refQty) * selQty;
+        totalFat += (storedF / refQty) * selQty;
+        totalCarbs += (storedC / refQty) * selQty;
+        totalFiber += (storedFb / refQty) * selQty;
+        totalCalories += (storedCal / refQty) * selQty;
       });
     });
+
     return {
       totalProtein: Math.round(totalProtein),
+      totalFat: Math.round(totalFat),
+      totalCarbs: Math.round(totalCarbs),
+      totalFiber: Math.round(totalFiber),
       totalCalories: Math.round(totalCalories)
     };
   };
 
-  const { totalProtein: dayTotalProtein, totalCalories: dayTotalCalories } = getDayTotalProteinAndCalories();
+  const { totalProtein: dayTotalProtein, totalFat: dayTotalFat, totalCarbs: dayTotalCarbs, totalFiber: dayTotalFiber, totalCalories: dayTotalCalories } = getDayTotalNutrition();
   const progressPct = Math.min(100, Math.round((dayTotalProtein / proteinTarget) * 100));
   const isGoalAchieved = dayTotalProtein >= proteinTarget;
 
@@ -83,7 +97,7 @@ export default function Diet() {
     const refQty = Number(food.referenceQuantity) || 100;
     const refUnit = food.referenceUnit || "g";
 
-    // NO AI CALL HERE - Diet page uses stored master database reference values directly
+    // NO AI CALL HERE - Uses master food reference database values directly
     addFoodToMeal(selectedDay, activeMealKey, {
       foodReferenceId: food.id,
       id: food.id,
@@ -93,6 +107,9 @@ export default function Diet() {
       referenceUnit: refUnit,
       proteinPerServing: Number(food.protein) || 0,
       protein: Number(food.protein) || 0,
+      fat: Number(food.fat) || 0,
+      carbs: Number(food.carbs) || 0,
+      fiber: Number(food.fiber) || 0,
       calories: Number(food.calories) || Math.round((Number(food.protein) || 0) * 4),
       serving: food.serving || `${refQty}${refUnit}`,
       quantity: refQty,
@@ -124,7 +141,7 @@ export default function Diet() {
         ))}
       </div>
 
-      {/* Protein Target Overview Header Card */}
+      {/* Protein & Macro Target Overview Header Card */}
       <div className="nothing-card glow-purple" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <div className="circular-ring-container" style={{ width: "110px", height: "110px" }}>
@@ -157,10 +174,28 @@ export default function Diet() {
           </div>
         </div>
 
-        <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "12px 18px", borderRadius: "14px", textAlign: "right" }}>
-          <span className="nothing-label" style={{ fontSize: "0.65rem" }}>TOTAL DAILY CALORIES</span>
-          <div style={{ fontSize: "1.5rem", fontWeight: "900", color: "var(--accent-push)", marginTop: "2px" }}>
-            {dayTotalCalories} <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>kcal</span>
+        {/* Daily Macro Breakdown Summary Pill */}
+        <div style={{ display: "flex", gap: "12px", background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "12px 18px", borderRadius: "14px", alignItems: "center" }}>
+          <div style={{ textAlign: "center", paddingRight: "12px", borderRight: "1px solid var(--border-color)" }}>
+            <span className="nothing-label" style={{ fontSize: "0.6rem" }}>CALORIES</span>
+            <div style={{ fontSize: "1.3rem", fontWeight: "900", color: "var(--accent-push)" }}>
+              {dayTotalCalories} <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>kcal</span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", fontSize: "0.75rem" }}>
+            <div>
+              <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>FAT</span>
+              <strong style={{ color: "var(--text-primary)" }}>{dayTotalFat}g</strong>
+            </div>
+            <div>
+              <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>CARBS</span>
+              <strong style={{ color: "var(--text-primary)" }}>{dayTotalCarbs}g</strong>
+            </div>
+            <div>
+              <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>FIBER</span>
+              <strong style={{ color: "var(--text-primary)" }}>{dayTotalFiber}g</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -175,12 +210,14 @@ export default function Diet() {
           let mealCalories = 0;
           mealItems.forEach((item) => {
             const storedP = Number(item.proteinPerServing ?? item.protein ?? 0);
-            const storedC = Number(item.calories ?? storedP * 4);
+            const storedF = Number(item.fat ?? 0);
+            const storedC = Number(item.carbs ?? 0);
+            const storedCal = Number(item.calories ?? (storedP * 4 + storedC * 4 + storedF * 9));
             const refQ = Number(item.referenceQuantity) || 1;
             const selQ = Number(item.quantity) || 1;
 
             mealProtein += (storedP / refQ) * selQ;
-            mealCalories += (storedC / refQ) * selQ;
+            mealCalories += (storedCal / refQ) * selQ;
           });
 
           return (
@@ -304,7 +341,7 @@ export default function Diet() {
                   key={food.id}
                   style={{
                     display: "flex",
-                    justify: "space-between",
+                    justifyContent: "space-between",
                     alignItems: "center",
                     padding: "12px 14px",
                     borderRadius: "12px",
@@ -324,7 +361,7 @@ export default function Diet() {
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <div style={{ textAlign: "right" }}>
                       <span style={{ fontWeight: "800", fontFamily: "var(--font-mono)", color: "var(--accent-protein)", fontSize: "0.95rem", display: "block" }}>
-                        {food.protein}g
+                        {food.protein}g P
                       </span>
                       <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
                         {food.calories || Math.round(food.protein * 4)} kcal
