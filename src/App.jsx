@@ -8,6 +8,7 @@ import Onboarding from "./components/Onboarding";
 import Sidebar from "./components/Sidebar";
 import BottomNav from "./components/BottomNav";
 import Workout from "./components/Workout";
+import EditRoutine from "./components/EditRoutine";
 import Diet from "./components/Diet";
 import FoodReference from "./components/FoodReference";
 import History from "./components/History";
@@ -132,6 +133,8 @@ function AppContent() {
       case "/":
       case "/workout":
         return "Workout Dashboard";
+      case "/edit-routine":
+        return "Edit Routine";
       case "/diet":
         return "Diet Tracker";
       case "/food":
@@ -194,6 +197,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Workout />} />
             <Route path="/workout" element={<Workout />} />
+            <Route path="/edit-routine" element={<EditRoutine />} />
             <Route path="/diet" element={<Diet />} />
             <Route path="/food" element={<FoodReference />} />
             <Route path="/history" element={<History />} />

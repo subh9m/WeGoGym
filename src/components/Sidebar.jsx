@@ -7,6 +7,7 @@ import {
   BookOpen, 
   Calendar, 
   Settings as SettingsIcon, 
+  Pencil,
   ChevronLeft, 
   ChevronRight 
 } from "lucide-react";
@@ -20,6 +21,7 @@ export default function Sidebar() {
 
   const menuItems = [
     { name: "Workout", path: "/", icon: Dumbbell, glowClass: "glow-red" },
+    { name: "Edit Routine", path: "/edit-routine", icon: Pencil, glowClass: "glow-orange" },
     { name: "Diet", path: "/diet", icon: Utensils, glowClass: "glow-purple" },
     { name: "Food Library", path: "/food", icon: BookOpen, glowClass: "glow-blue" },
     { name: "History", path: "/history", icon: Calendar, glowClass: "glow-history" },

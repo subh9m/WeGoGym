@@ -488,22 +488,30 @@ export function PlannerProvider({ children }) {
   // Helper to normalize per-set tracking list
   const getSetsList = (ex) => {
     if (!ex) return [];
-    if (Array.isArray(ex.setsList) && ex.setsList.length > 0) {
-      return ex.setsList;
+    const targetCount = parseInt(ex.targetSets || ex.sets) || 3;
+    const defaultWeight = parseFloat(ex.defaultWeight || ex.weight) || 40;
+    const defaultReps = parseInt(ex.targetReps || ex.reps) || 10;
+
+    let existingList = Array.isArray(ex.setsList) ? ex.setsList : [];
+    const result = [];
+    for (let i = 1; i <= targetCount; i++) {
+      if (existingList[i - 1]) {
+        result.push({
+          setNum: i,
+          weight: existingList[i - 1].weight ?? defaultWeight,
+          reps: existingList[i - 1].reps ?? defaultReps,
+          completed: Boolean(existingList[i - 1].completed)
+        });
+      } else {
+        result.push({
+          setNum: i,
+          weight: defaultWeight,
+          reps: defaultReps,
+          completed: false
+        });
+      }
     }
-    const count = parseInt(ex.sets) || 3;
-    const weightVal = parseFloat(ex.weight) || 40;
-    const repsVal = parseInt(ex.reps) || 10;
-    const list = [];
-    for (let i = 1; i <= count; i++) {
-      list.push({
-        setNum: i,
-        weight: weightVal,
-        reps: repsVal,
-        completed: Boolean(ex.completed)
-      });
-    }
-    return list;
+    return result;
   };
 
   const finishSession = async () => {
@@ -798,11 +806,17 @@ export function PlannerProvider({ children }) {
       updatedMeals[mealKey] = [];
     }
 
+    const proteinVal = parseInt(foodItem.proteinPerServing ?? foodItem.protein) || 0;
+    const nameVal = foodItem.foodName || foodItem.name || "Food Item";
+    const servingVal = foodItem.serving || "1 serving";
+
     updatedMeals[mealKey].push({
-      refId: foodItem.id || "",
-      name: foodItem.name,
-      serving: foodItem.serving,
-      proteinPerServing: parseInt(foodItem.protein) || 0,
+      refId: foodItem.id || foodItem.refId || "",
+      name: nameVal,
+      foodName: nameVal,
+      serving: servingVal,
+      proteinPerServing: proteinVal,
+      protein: proteinVal,
       quantity: quantity
     });
 

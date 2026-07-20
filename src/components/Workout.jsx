@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Dumbbell, 
@@ -15,7 +15,8 @@ import {
   TrendingUp,
   Sparkles,
   X,
-  AlertCircle
+  AlertCircle,
+  Pencil
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -30,6 +31,7 @@ const DAYS_CONFIG = [
 
 export default function Workout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { 
     workouts, 
     updateExercise, 
@@ -236,13 +238,24 @@ export default function Workout() {
                 </button>
               </div>
             ) : (
-              <button 
-                className="btn-premium-primary" 
-                onClick={() => startSession(selectedDay)}
-                disabled={totalExercises === 0}
-              >
-                <Play size={16} /> Start Workout
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <button 
+                  className="btn-premium-secondary" 
+                  onClick={() => navigate("/edit-routine")}
+                  style={{ height: "42px" }}
+                >
+                  <Pencil size={15} /> Edit Routine
+                </button>
+
+                <button 
+                  className="btn-premium-primary" 
+                  onClick={() => startSession(selectedDay)}
+                  disabled={totalExercises === 0}
+                  style={{ height: "42px" }}
+                >
+                  <Play size={16} /> Start Workout
+                </button>
+              </div>
             )}
           </div>
         </div>

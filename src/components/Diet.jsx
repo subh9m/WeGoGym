@@ -9,7 +9,8 @@ import {
   Plus, 
   Search,
   CheckCircle2,
-  X
+  X,
+  Minus
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -30,7 +31,7 @@ const MEALS_CONFIG = [
 ];
 
 export default function Diet() {
-  const { profile, diets, foodReferences, addFoodToMeal, removeFoodFromMeal } = usePlanner();
+  const { profile, diets, foodReferences, addFoodToMeal, removeFoodFromMeal, updateFoodQuantity } = usePlanner();
   const [selectedDay, setSelectedDay] = useState("day1");
 
   const [activeMealKey, setActiveMealKey] = useState(null);
@@ -49,7 +50,9 @@ export default function Diet() {
     let total = 0;
     Object.keys(dayDiet.meals || {}).forEach((mealKey) => {
       (dayDiet.meals[mealKey] || []).forEach((item) => {
-        total += (item.proteinPerServing || 0) * (item.quantity || 1);
+        const pVal = parseInt(item.proteinPerServing ?? item.protein) || 0;
+        const qVal = parseInt(item.quantity) || 1;
+        total += pVal * qVal;
       });
     });
     return total;
@@ -66,7 +69,7 @@ export default function Diet() {
   const handleAddFoodSelect = (food) => {
     if (!activeMealKey) return;
     addFoodToMeal(selectedDay, activeMealKey, {
-      foodId: food.id,
+      id: food.id,
       foodName: food.name,
       proteinPerServing: food.protein,
       serving: food.serving,
@@ -125,7 +128,7 @@ export default function Diet() {
               {dayTotalProtein}g <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: "600" }}>/ {proteinTarget}g</span>
             </div>
             <div style={{ fontSize: "0.8rem", color: isGoalAchieved ? "var(--accent-success)" : "var(--accent-protein)", fontWeight: "700", marginTop: "6px" }}>
-              {isGoalAchieved ? "✓ Target Protein Reached!" : `${proteinTarget - dayTotalProtein}g remaining today`}
+              {isGoalAchieved ? "✓ Target Protein Reached!" : `${Math.max(0, proteinTarget - dayTotalProtein)}g remaining today`}
             </div>
           </div>
         </div>
@@ -139,7 +142,9 @@ export default function Diet() {
 
           let mealProtein = 0;
           mealItems.forEach((item) => {
-            mealProtein += (item.proteinPerServing || 0) * (item.quantity || 1);
+            const pVal = parseInt(item.proteinPerServing ?? item.protein) || 0;
+            const qVal = parseInt(item.quantity) || 1;
+            mealProtein += pVal * qVal;
           });
 
           return (
@@ -160,20 +165,45 @@ export default function Diet() {
                   </span>
                 </div>
 
-                {/* Logged Item Chips */}
+                {/* Logged Item Chips with Quantity Modifiers */}
                 <div className="meal-chip-list">
-                  {mealItems.map((item, idx) => (
-                    <div key={idx} className="food-item-chip">
-                      <span>{item.foodName} ({item.quantity}x)</span>
-                      <button 
-                        style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center" }}
-                        onClick={() => removeFoodFromMeal(selectedDay, meal.key, idx)}
-                        title="Remove food"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
+                  {mealItems.map((item, idx) => {
+                    const itemProt = (parseInt(item.proteinPerServing ?? item.protein) || 0) * (parseInt(item.quantity) || 1);
+                    return (
+                      <div key={idx} className="food-item-chip" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span>{item.foodName || item.name}</span>
+                        <span style={{ fontWeight: "800", fontFamily: "var(--font-mono)", color: "var(--accent-protein)", fontSize: "0.75rem" }}>
+                          {itemProt}g
+                        </span>
+                        
+                        <div style={{ display: "flex", alignItems: "center", gap: "3px", background: "var(--bg-card)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
+                          <button 
+                            style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}
+                            onClick={() => updateFoodQuantity(selectedDay, meal.key, idx, -1)}
+                            title="Decrease quantity"
+                          >
+                            <Minus size={10} />
+                          </button>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", fontWeight: "800" }}>{item.quantity || 1}x</span>
+                          <button 
+                            style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}
+                            onClick={() => updateFoodQuantity(selectedDay, meal.key, idx, 1)}
+                            title="Increase quantity"
+                          >
+                            <Plus size={10} />
+                          </button>
+                        </div>
+
+                        <button 
+                          style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center", marginLeft: "2px" }}
+                          onClick={() => removeFoodFromMeal(selectedDay, meal.key, idx)}
+                          title="Remove food"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    );
+                  })}
                   {mealItems.length === 0 && (
                     <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontStyle: "italic" }}>
                       No items logged
