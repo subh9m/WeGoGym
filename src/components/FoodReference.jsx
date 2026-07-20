@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   Search, 
   Plus, 
@@ -14,7 +14,6 @@ import {
   Wheat, 
   Flame, 
   Utensils, 
-  Dumbbell,
   X
 } from "lucide-react";
 
@@ -62,6 +61,15 @@ export default function FoodReference() {
     }
   };
 
+  const isVegFood = (food) => {
+    if (food.isVeg !== undefined) return Boolean(food.isVeg);
+    if (food.category === "veg") return true;
+    if (food.category === "nonveg") return false;
+    const vegKeywords = ["milk", "paneer", "soya", "oats", "peanut", "banana", "dal", "rajma", "chana", "yogurt", "rice", "bread", "apple", "fruit", "curd"];
+    const nameLower = (food.name || "").toLowerCase();
+    return vegKeywords.some(kw => nameLower.includes(kw));
+  };
+
   const handleOpenAdd = () => {
     setIsEditing(false);
     setEditingId(null);
@@ -81,7 +89,7 @@ export default function FoodReference() {
     setServing(food.serving);
     setProtein(food.protein);
     setCategoryTag(food.categoryTag || "Protein");
-    setIsVegOption(food.isVeg !== undefined ? food.isVeg : true);
+    setIsVegOption(isVegFood(food));
     setModalOpen(true);
   };
 
@@ -107,16 +115,16 @@ export default function FoodReference() {
   };
 
   const getCategoryMeta = (food) => {
-    const isVeg = food.isVeg !== undefined ? food.isVeg : food.category === "veg";
+    const isVeg = isVegFood(food);
     const proteinVal = food.protein || 0;
 
-    if (food.category === "dairy") {
-      return { label: "Dairy", icon: <Milk size={18} color="var(--accent-blue)" />, badgeClass: "muscle-pull" };
+    if (food.category === "dairy" || food.name.toLowerCase().includes("milk") || food.name.toLowerCase().includes("paneer")) {
+      return { label: isVeg ? "Dairy (Veg)" : "Dairy", icon: <Milk size={18} color="var(--accent-blue)" />, badgeClass: "muscle-pull" };
     }
-    if (food.category === "grains") {
+    if (food.category === "grains" || food.name.toLowerCase().includes("oats") || food.name.toLowerCase().includes("chana")) {
       return { label: "Grains", icon: <Wheat size={18} color="var(--accent-abs)" />, badgeClass: "muscle-abs" };
     }
-    if (food.category === "fruits") {
+    if (food.category === "fruits" || food.name.toLowerCase().includes("banana") || food.name.toLowerCase().includes("apple")) {
       return { label: "Fruit/Veg", icon: <Apple size={18} color="var(--accent-legs)" />, badgeClass: "muscle-legs" };
     }
     if (proteinVal >= 25) {
@@ -131,10 +139,11 @@ export default function FoodReference() {
   const filteredFoods = (foodReferences || []).filter((food) => {
     const matchesSearch = food.name.toLowerCase().includes(searchQuery.toLowerCase());
     const isFav = favorites.includes(food.id);
+    const isVeg = isVegFood(food);
 
     if (activeCategory === "fav") return isFav && matchesSearch;
-    if (activeCategory === "veg") return food.isVeg && matchesSearch;
-    if (activeCategory === "nonveg") return !food.isVeg && matchesSearch;
+    if (activeCategory === "veg") return isVeg && matchesSearch;
+    if (activeCategory === "nonveg") return !isVeg && matchesSearch;
     if (activeCategory === "protein") return food.protein >= 20 && matchesSearch;
     
     return matchesSearch;
@@ -232,9 +241,9 @@ export default function FoodReference() {
                 </div>
               </div>
 
-              {/* Actions & Category Badge Footer */}
-              <div>
-                <span className={`exercise-badge-muscle ${meta.badgeClass}`} style={{ fontSize: "0.6rem" }}>
+              {/* Actions & Category Badge Footer Row */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border-color)" }}>
+                <span className={`exercise-badge-muscle ${meta.badgeClass}`} style={{ fontSize: "0.6rem", margin: 0 }}>
                   {meta.label}
                 </span>
 
@@ -244,7 +253,7 @@ export default function FoodReference() {
                     onClick={(e) => toggleFavorite(food.id, e)}
                     title={isFav ? "Remove favorite" : "Add favorite"}
                   >
-                    <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+                    <Heart size={15} fill={isFav ? "currentColor" : "none"} />
                   </button>
 
                   <button 
@@ -252,7 +261,7 @@ export default function FoodReference() {
                     onClick={(e) => handleOpenEdit(food, e)}
                     title="Edit food"
                   >
-                    <Edit3 size={16} />
+                    <Edit3 size={15} />
                   </button>
 
                   <button 
@@ -260,7 +269,7 @@ export default function FoodReference() {
                     onClick={(e) => { e.stopPropagation(); deleteFoodRef(food.id); }}
                     title="Delete food"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               </div>

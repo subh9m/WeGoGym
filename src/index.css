@@ -1186,6 +1186,57 @@ body.light .heatmap-cell.level-0 { background-color: #e5e5e5; }
   border-color: var(--text-secondary);
 }
 
+/* Circular Actions Toolbar Inside Cards */
+.food-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-action-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.icon-action-btn:hover {
+  transform: translateY(-2px);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+  background-color: var(--bg-card);
+}
+
+.icon-action-btn.edit-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background-color: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+}
+
+.icon-action-btn.delete-btn:hover {
+  border-color: var(--accent-push);
+  color: var(--accent-push);
+  background-color: rgba(239, 68, 68, 0.12);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+}
+
+.icon-action-btn.fav-btn:hover,
+.icon-action-btn.fav-btn.fav-active {
+  border-color: var(--accent-pr);
+  color: var(--accent-pr);
+  background-color: rgba(236, 72, 153, 0.12);
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.25);
+}
+
 /* Media Breakpoints System (1024px, 768px, 600px, 480px, 375px) */
 @media (min-width: 901px) {
   .mobile-logo-only {
