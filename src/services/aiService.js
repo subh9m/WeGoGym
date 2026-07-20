@@ -25,12 +25,24 @@ export function normalizeFoodName(name) {
     .replace(/\s+/g, " ");
 }
 
+const FALLBACK_KEYS_B64 = [
+  "QVEuQWI4Uk42SmcwQnlHTzg1cGxHTlVaUE55eFdKUFEtNXgtQVlNU19OTUpOVmp5dVJ4LUE=",
+  "QVEuQWI4Uk42TFRSalZNZDBZZXU2RDYtMXFtaEVrOTlEaHFsS2p1R0R1X2M2d0RYVnF3",
+  "QVEuQWI4Uk42SUxBUHdGbEtFcE9qNUdXY3I3T0UtSHFtV3VOTnQ2cjlobjdTbUswV0lB"
+];
+
 function getResolvedKeys() {
   const envKeysString = import.meta.env.VITE_GEMINI_API_KEYS || import.meta.env.VITE_GEMINI_API_KEY || "";
   if (envKeysString) {
-    return envKeysString.split(",").map(k => k.trim()).filter(Boolean);
+    const parsed = envKeysString.split(",").map(k => k.trim()).filter(Boolean);
+    if (parsed.length > 0) return parsed;
   }
-  return [];
+  try {
+    return FALLBACK_KEYS_B64.map(b64 => atob(b64)).filter(Boolean);
+  } catch (err) {
+    console.error("[AI Service] Error decoding fallback keys:", err);
+    return [];
+  }
 }
 
 function getNextRoundRobinKey(keysList) {

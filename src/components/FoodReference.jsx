@@ -172,9 +172,11 @@ export default function FoodReference() {
 
   // Single Item: Fetch Details Handler
   const handleFetchDetails = async (overrideName, overrideQty, overrideUnit) => {
-    const targetName = (overrideName !== undefined ? overrideName : foodName).trim();
-    const targetQty = Number(overrideQty !== undefined ? overrideQty : refQuantity) || 100;
-    const targetUnit = overrideUnit || refUnit;
+    const nameStr = typeof overrideName === "string" ? overrideName : foodName;
+    const targetName = (nameStr || "").trim();
+    const qtyNum = typeof overrideQty === "number" ? overrideQty : (parseInt(refQuantity) || 100);
+    const targetQty = Number(qtyNum) || 100;
+    const targetUnit = typeof overrideUnit === "string" ? overrideUnit : refUnit;
 
     if (!targetName) {
       setAiError("Please enter a food name first.");
