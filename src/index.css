@@ -1628,3 +1628,48 @@ body.light .heatmap-cell.level-0 { background-color: #e5e5e5; }
     font-size: 0.78rem;
   }
 }
+
+/* Global Select & Option Dark Mode High Contrast Rules */
+select {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  outline: none;
+  cursor: pointer;
+}
+
+select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  padding: 12px !important;
+}
+
+body.light select option {
+  background-color: #ffffff !important;
+  color: #111111 !important;
+}
+
+/* Mobile Native Bottom Sheet Overlay Adjustments */
+@media (max-width: 640px) {
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-content {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: 24px !important;
+    border-top-right-radius: 24px !important;
+    padding: 24px 20px 36px 20px !important;
+    max-height: 88vh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    animation: slideUpSheet 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  @keyframes slideUpSheet {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+}

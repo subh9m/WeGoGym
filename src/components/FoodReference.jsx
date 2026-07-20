@@ -640,34 +640,47 @@ export default function FoodReference() {
                 </div>
               </div>
 
-              {/* Reference Quantity & Unit Selection Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>REFERENCE QUANTITY</label>
-                  <div className="premium-input-box">
-                    <input 
-                      type="number" 
-                      className="premium-inner-input" 
-                      placeholder="100"
-                      value={refQuantity}
-                      onChange={(e) => handleRefQuantityChange(e.target.value)}
-                      required
-                    />
-                  </div>
+              {/* Reference Quantity Input */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>REFERENCE QUANTITY</label>
+                <div className="premium-input-box">
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    placeholder="100"
+                    value={refQuantity}
+                    onChange={(e) => handleRefQuantityChange(e.target.value)}
+                    required
+                  />
                 </div>
+              </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>REFERENCE UNIT</label>
-                  <select 
-                    className="premium-input-box"
-                    style={{ height: "42px", background: "var(--bg-secondary)", padding: "0 12px", fontSize: "0.85rem", fontWeight: "700" }}
-                    value={refUnit}
-                    onChange={(e) => setRefUnit(e.target.value)}
-                  >
-                    {UNIT_OPTIONS.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
+              {/* Reference Unit Pill Selector */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>REFERENCE UNIT</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {UNIT_OPTIONS.map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setRefUnit(u)}
+                      style={{
+                        flex: "1 0 auto",
+                        minWidth: "48px",
+                        height: "40px",
+                        borderRadius: "10px",
+                        fontSize: "0.85rem",
+                        fontWeight: "700",
+                        border: refUnit === u ? "1.5px solid var(--text-primary)" : "1px solid var(--border-color)",
+                        background: refUnit === u ? "var(--text-primary)" : "var(--bg-secondary)",
+                        color: refUnit === u ? "var(--bg-primary)" : "var(--text-primary)",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease"
+                      }}
+                    >
+                      {u}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -853,7 +866,7 @@ export default function FoodReference() {
                         disabled={batchProcessing}
                       >
                         {UNIT_OPTIONS.map((u) => (
-                          <option key={u} value={u}>{u}</option>
+                          <option key={u} value={u} style={{ background: "var(--bg-card)", color: "var(--text-primary)" }}>{u}</option>
                         ))}
                       </select>
 
