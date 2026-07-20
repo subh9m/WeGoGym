@@ -36,7 +36,7 @@ const FILTER_CHIPS = [
   { id: "fruits", label: "Fruits & Veg", icon: Apple, activeClass: "active-fruits" }
 ];
 
-const UNIT_OPTIONS = ["g", "ml", "piece", "cup", "oz", "tbsp", "serving"];
+const UNIT_OPTIONS = ["g", "qty", "piece", "ml", "cup", "serving"];
 const FOOD_TYPE_OPTIONS = ["protein", "grain", "dairy", "vegetable", "fruit", "meat", "seafood", "legumes", "nuts", "supplement", "beverage", "snack"];
 
 export default function FoodReference() {
@@ -557,22 +557,6 @@ export default function FoodReference() {
                     </span>
                   </div>
                 </div>
-
-                {/* Macro Profile Breakdown Row */}
-                <div style={{ display: "flex", gap: "12px", marginTop: "12px", padding: "8px 12px", background: "var(--bg-secondary)", borderRadius: "10px", fontSize: "0.75rem" }}>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>FAT</span>
-                    <strong style={{ color: "var(--text-primary)" }}>{food.fat ?? 0}g</strong>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>CARBS</span>
-                    <strong style={{ color: "var(--text-primary)" }}>{food.carbs ?? 0}g</strong>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>FIBER</span>
-                    <strong style={{ color: "var(--text-primary)" }}>{food.fiber ?? 0}g</strong>
-                  </div>
-                </div>
               </div>
 
               {/* Actions & Category Badge Footer Row */}
@@ -717,30 +701,15 @@ export default function FoodReference() {
                     </span>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
-                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
-                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>PROTEIN</span>
-                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.protein}g</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <div style={{ background: "var(--bg-card)", padding: "10px", borderRadius: "10px", textAlign: "center" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.6rem" }}>PROTEIN</span>
+                      <div style={{ fontSize: "1.3rem", fontWeight: "900", color: "var(--text-primary)" }}>{protein}g</div>
                     </div>
 
-                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
-                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>FAT</span>
-                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.fat ?? 0}g</div>
-                    </div>
-
-                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
-                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>CARBS</span>
-                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.carbs ?? 0}g</div>
-                    </div>
-
-                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center" }}>
-                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>FIBER</span>
-                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.fiber ?? 0}g</div>
-                    </div>
-
-                    <div style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "8px", textAlign: "center", gridColumn: "span 2" }}>
-                      <span className="nothing-label" style={{ fontSize: "0.55rem" }}>CALORIES</span>
-                      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--accent-push)" }}>{aiPreview.calories} kcal</div>
+                    <div style={{ background: "var(--bg-card)", padding: "10px", borderRadius: "10px", textAlign: "center" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.6rem" }}>CALORIES</span>
+                      <div style={{ fontSize: "1.3rem", fontWeight: "900", color: "var(--accent-push)" }}>{calories} kcal</div>
                     </div>
                   </div>
                 </div>

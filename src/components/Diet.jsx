@@ -175,26 +175,11 @@ export default function Diet() {
         </div>
 
         {/* Daily Macro Breakdown Summary Pill */}
-        <div style={{ display: "flex", gap: "12px", background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "12px 18px", borderRadius: "14px", alignItems: "center" }}>
-          <div style={{ textAlign: "center", paddingRight: "12px", borderRight: "1px solid var(--border-color)" }}>
-            <span className="nothing-label" style={{ fontSize: "0.6rem" }}>CALORIES</span>
-            <div style={{ fontSize: "1.3rem", fontWeight: "900", color: "var(--accent-push)" }}>
+        <div style={{ display: "flex", gap: "12px", background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "12px 20px", borderRadius: "14px", alignItems: "center" }}>
+          <div style={{ textAlign: "center" }}>
+            <span className="nothing-label" style={{ fontSize: "0.6rem" }}>CALORIES TODAY</span>
+            <div style={{ fontSize: "1.4rem", fontWeight: "900", color: "var(--accent-push)" }}>
               {dayTotalCalories} <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>kcal</span>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: "10px", fontSize: "0.75rem" }}>
-            <div>
-              <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>FAT</span>
-              <strong style={{ color: "var(--text-primary)" }}>{dayTotalFat}g</strong>
-            </div>
-            <div>
-              <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>CARBS</span>
-              <strong style={{ color: "var(--text-primary)" }}>{dayTotalCarbs}g</strong>
-            </div>
-            <div>
-              <span style={{ color: "var(--text-secondary)", fontSize: "0.6rem", display: "block" }}>FIBER</span>
-              <strong style={{ color: "var(--text-primary)" }}>{dayTotalFiber}g</strong>
             </div>
           </div>
         </div>
