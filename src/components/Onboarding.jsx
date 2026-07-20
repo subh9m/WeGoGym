@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
 import { useAuth } from "../contexts/AuthContext";
+import ThemeToggleBtn from "./ThemeToggleBtn";
 
 export default function Onboarding() {
   const { completeOnboarding } = usePlanner();
@@ -33,7 +34,12 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-container" style={{ position: "relative" }}>
+      {/* Floating Top Right Theme Toggle Button */}
+      <div style={{ position: "absolute", top: "20px", right: "20px", zIndex: 10 }}>
+        <ThemeToggleBtn style={{ width: "42px", height: "42px", borderRadius: "12px", background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+      </div>
+
       <div className="auth-card" style={{ maxWidth: "450px" }}>
         <div className="auth-header">
           <div className="auth-logo">WeGoGym</div>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import ThemeToggleBtn from "./ThemeToggleBtn";
 
 export default function Auth() {
   const { loginWithEmail, signupWithEmail, loginAnonymously, resetPassword } = useAuth();
@@ -83,7 +84,12 @@ export default function Auth() {
   }
 
   return (
-    <div className="auth-container">
+    <div className="auth-container" style={{ position: "relative" }}>
+      {/* Floating Top Right Theme Toggle Button */}
+      <div style={{ position: "absolute", top: "20px", right: "20px", zIndex: 10 }}>
+        <ThemeToggleBtn style={{ width: "42px", height: "42px", borderRadius: "12px", background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+      </div>
+
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo">WeGoGym</div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { HashRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PlannerProvider, usePlanner } from "./contexts/PlannerContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 import Auth from "./components/Auth";
 import Onboarding from "./components/Onboarding";
@@ -15,8 +16,9 @@ import History from "./components/History";
 import Settings from "./components/Settings";
 import CommandPalette from "./components/CommandPalette";
 import InstallPWA from "./components/InstallPWA";
+import ThemeToggleBtn from "./components/ThemeToggleBtn";
 
-import { Search, Bell, Sun, Moon } from "lucide-react";
+import { Search, Sun, Moon } from "lucide-react";
 import "./App.css";
 
 function AppContent() {
@@ -181,9 +183,7 @@ function AppContent() {
             </button>
             
             {/* Theme Toggle Button */}
-            <button className="header-action-btn" onClick={toggleTheme} title="Toggle color theme">
-              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+            <ThemeToggleBtn />
             
             {/* Profile Avatar circle */}
             <div className="avatar-circle" onClick={() => navigate("/settings")} title="View settings">
@@ -221,12 +221,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <PlannerProvider>
-          <AppContent />
-        </PlannerProvider>
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <PlannerProvider>
+            <AppContent />
+          </PlannerProvider>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

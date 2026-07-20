@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { motion } from "framer-motion";
-import { Settings as SettingsIcon, LogOut, ShieldCheck, Check } from "lucide-react";
+import { Settings as SettingsIcon, LogOut, ShieldCheck, Check, Sun, Moon } from "lucide-react";
 
 export default function Settings() {
   const { profile, updateProfileSettings } = usePlanner();
   const { logout, currentUser } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   
   const [name, setName] = useState("");
   const [proteinTarget, setProteinTarget] = useState(100);
@@ -141,6 +143,52 @@ export default function Settings() {
             {loading ? "Saving Changes..." : "Save Settings"}
           </button>
         </form>
+      </div>
+
+      {/* Appearance & Theme Section */}
+      <div className="nothing-card glow-white">
+        <div className="nothing-card-header">
+          <span className="nothing-title">
+            Appearance & Theme
+          </span>
+          <span className="nothing-label">Display Mode</span>
+        </div>
+
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button
+            type="button"
+            className="btn-premium-secondary"
+            style={{
+              flex: 1,
+              height: "44px",
+              background: theme === "dark" ? "var(--text-primary)" : "transparent",
+              color: theme === "dark" ? "var(--bg-primary)" : "var(--text-primary)",
+              borderColor: theme === "dark" ? "var(--text-primary)" : "var(--border-color)",
+              justifyContent: "center",
+              gap: "8px"
+            }}
+            onClick={() => theme === "light" && toggleTheme()}
+          >
+            <Moon size={18} /> Dark Mode
+          </button>
+
+          <button
+            type="button"
+            className="btn-premium-secondary"
+            style={{
+              flex: 1,
+              height: "44px",
+              background: theme === "light" ? "var(--text-primary)" : "transparent",
+              color: theme === "light" ? "var(--bg-primary)" : "var(--text-primary)",
+              borderColor: theme === "light" ? "var(--text-primary)" : "var(--border-color)",
+              justifyContent: "center",
+              gap: "8px"
+            }}
+            onClick={() => theme === "dark" && toggleTheme()}
+          >
+            <Sun size={18} /> Light Mode
+          </button>
+        </div>
       </div>
 
       {/* Account Security & Sign Out */}
