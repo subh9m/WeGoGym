@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Onboarding() {
   const { completeOnboarding } = usePlanner();
+  const { logout } = useAuth();
   const [name, setName] = useState("");
   const [target, setTarget] = useState(100);
   const [dietPref, setDietPref] = useState("veg"); // "veg" or "nonveg"
@@ -130,6 +132,16 @@ export default function Onboarding() {
           >
             {loading ? "Setting Up..." : "Initialize Planner"}
           </button>
+
+          <div style={{ textAlign: "center", marginTop: "14px" }}>
+            <span 
+              className="auth-toggle-link" 
+              style={{ fontSize: "0.8rem", color: "var(--text-muted)", textDecoration: "none", cursor: "pointer" }} 
+              onClick={() => logout()}
+            >
+              ← Back to Main Login / Sign Out
+            </span>
+          </div>
         </form>
       </div>
     </div>
