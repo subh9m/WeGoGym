@@ -10,11 +10,12 @@ import {
   Activity,
   CheckCircle2,
   Zap,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from "lucide-react";
 
 export default function History() {
-  const { history, profile } = usePlanner();
+  const { history, profile, deleteHistoryLog } = usePlanner();
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [drawerLog, setDrawerLog] = useState(null);
   const [yearOptions, setYearOptions] = useState([]);
@@ -49,6 +50,13 @@ export default function History() {
       month: "short",
       year: "numeric"
     });
+  };
+
+  const handleDeleteLog = async (logId) => {
+    if (window.confirm("Are you sure you want to delete this workout history record?")) {
+      await deleteHistoryLog(logId);
+      setDrawerLog(null);
+    }
   };
 
   const totalWorkoutDays = (history || []).length;
@@ -99,101 +107,81 @@ export default function History() {
 
         <div className="metric-card glow-blue">
           <div className="metric-card-header">
-            <span>Total Workouts</span>
-            <Dumbbell size={16} color="var(--accent-blue)" />
+            <span>Filter Year</span>
+            <Activity size={16} color="var(--accent-blue)" />
           </div>
-          <div className="metric-value">
-            <span className="metric-value-dot">{totalWorkoutDays}</span>
-            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "4px" }}>sessions</span>
-          </div>
-        </div>
-      </div>
-
-      {/* LeetCode Activity Heatmap Card */}
-      <div className="heatmap-container glow-white">
-        <div className="nothing-card-header" style={{ marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
-          <span className="nothing-title">
-            <Activity size={18} /> Workout Activity Heatmap
-          </span>
-
-          <select 
-            className="premium-input-box"
-            style={{ width: "auto", height: "36px", background: "var(--bg-secondary)", padding: "0 12px", fontSize: "0.8rem", fontWeight: "700" }}
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-          >
-            {yearOptions.map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="heatmap-wrapper">
-          <div className="heatmap-scroll-area">
-            <div className="heatmap-grid-core">
-              {Array.from({ length: 371 }).map((_, idx) => {
-                const level = (history || []).length > 0 && idx % 7 === 0 ? 3 : (history || []).length > 0 && idx % 11 === 0 ? 1 : 0;
-                return (
-                  <div 
-                    key={idx} 
-                    className={`heatmap-cell level-${level}`}
-                    title={`Day ${idx + 1}`}
-                  />
-                );
-              })}
-            </div>
+          <div className="metric-value" style={{ marginTop: "4px" }}>
+            <select
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--text-primary)",
+                fontFamily: "var(--font-dot)",
+                fontSize: "1.4rem",
+                fontWeight: "900",
+                cursor: "pointer",
+                outline: "none"
+              }}
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            >
+              {yearOptions.map(y => (
+                <option key={y} value={y} style={{ background: "var(--bg-card)", color: "var(--text-primary)" }}>
+                  {y}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Timeline Workout Log Cards */}
+      {/* Automated History Logs List */}
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div className="nothing-card-header" style={{ marginBottom: "0" }}>
-          <span className="nothing-title">Workout Logs ({history.length})</span>
-          <span className="nothing-label">Session Archives</span>
+        <div className="nothing-card-header">
+          <span className="nothing-title">Automated Workout History Logs</span>
+          <span className="nothing-label">Generated on Session Completion</span>
         </div>
 
-        {history && history.length > 0 ? (
+        {(history || []).length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {history.map((log) => {
-              const sessionVol = log.totalVolume || getSessionVolume(log.exercises || []);
+              const totalVol = log.totalVolume || getSessionVolume(log.exercises || []);
+              const readableDate = formatReadableDate(log.date);
 
               return (
-                <motion.div
+                <motion.div 
                   key={log.id}
                   className="nothing-card glow-white"
-                  whileHover={{ y: -2 }}
-                  style={{ cursor: "pointer", padding: "20px" }}
+                  style={{ cursor: "pointer", padding: "16px 20px" }}
+                  whileHover={{ x: 4 }}
                   onClick={() => setDrawerLog(log)}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "1.1rem", fontWeight: "800" }}>{log.dayName} Workout</span>
-                        <span className="exercise-badge-muscle muscle-push" style={{ fontSize: "0.65rem" }}>
-                          {log.routineType || "Split Routine"}
-                        </span>
-                        {log.prsAchieved && log.prsAchieved.length > 0 && (
-                          <span style={{ background: "rgba(236, 72, 153, 0.15)", color: "var(--accent-pr)", border: "1px solid var(--accent-pr)", padding: "2px 8px", borderRadius: "10px", fontSize: "0.65rem", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                            🏆 PR Unlocked
-                          </span>
-                        )}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                      <div className="exercise-icon-box" style={{ width: "42px", height: "42px", color: "var(--accent-push)" }}>
+                        <Dumbbell size={20} />
                       </div>
-                      <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                        {formatReadableDate(log.date)} • {log.durationMinutes} mins duration • {log.estimatedCalories || 0} kcal
+                      <div>
+                        <div style={{ fontSize: "1.05rem", fontWeight: "800" }}>
+                          {log.dayName || "Workout"} Session
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "2px" }}>
+                          {readableDate} • {log.startTime || ""} — {log.durationMinutes} mins
+                        </div>
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: "1.1rem", fontWeight: "800", fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>
-                          {sessionVol}kg
+                        <div style={{ fontFamily: "var(--font-mono)", fontWeight: "800", color: "var(--accent-push)", fontSize: "1.1rem" }}>
+                          {totalVol} kg
                         </div>
-                        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: "600" }}>
-                          {log.completedCount || 0} exercises • {log.completedSets || 0} sets
+                        <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
+                          {log.completedCount || 0} Ex • {log.completedSets || 0} Sets
                         </div>
                       </div>
-                      <ChevronRight size={18} color="var(--text-secondary)" />
+
+                      <ChevronRight size={18} color="var(--text-muted)" />
                     </div>
                   </div>
                 </motion.div>
@@ -204,7 +192,7 @@ export default function History() {
           <div className="nothing-card" style={{ textAlign: "center", padding: "40px 20px" }}>
             <span className="nothing-label">No History Yet</span>
             <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginTop: "6px" }}>
-              Complete your first workout session to view logged history & statistics!
+              Complete your first workout session to view automatically logged history & statistics!
             </div>
           </div>
         )}
@@ -219,9 +207,21 @@ export default function History() {
                 <h3 className="nothing-title" style={{ fontSize: "1.2rem" }}>{drawerLog.dayName} Workout Details</h3>
                 <span className="nothing-label">{formatReadableDate(drawerLog.date)} • {drawerLog.startTime || ""}</span>
               </div>
-              <button className="header-action-btn" onClick={() => setDrawerLog(null)}>
-                <X size={18} />
-              </button>
+              
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button 
+                  className="icon-action-btn delete-btn" 
+                  onClick={() => handleDeleteLog(drawerLog.id)}
+                  title="Delete History Log"
+                  style={{ width: "32px", height: "32px" }}
+                >
+                  <Trash2 size={14} />
+                </button>
+                
+                <button className="header-action-btn" onClick={() => setDrawerLog(null)}>
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="drawer-body" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>

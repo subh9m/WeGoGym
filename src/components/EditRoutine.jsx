@@ -437,17 +437,22 @@ export default function EditRoutine() {
                 </div>
               </div>
 
-              {/* Default Weight */}
+              {/* Default Weight Dropdown (2.5 kg Increments) */}
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <label className="nothing-label" style={{ fontSize: "0.65rem" }}>DEFAULT WEIGHT (KG)</label>
-                <div className="premium-input-box" style={{ height: "42px" }}>
-                  <input 
-                    type="number"
+                <div className="premium-input-box" style={{ height: "42px", padding: "0 8px" }}>
+                  <select 
                     className="premium-inner-input"
-                    value={ex.defaultWeight}
+                    style={{ fontSize: "0.9rem", cursor: "pointer", background: "transparent", border: "none", color: "var(--text-primary)", fontWeight: "700" }}
+                    value={ex.defaultWeight || 0}
                     onChange={(e) => handleFieldChange(idx, "defaultWeight", parseFloat(e.target.value) || 0)}
-                  />
-                  <span className="premium-input-unit">kg</span>
+                  >
+                    {Array.from({ length: 121 }, (_, i) => i * 2.5).map((w) => (
+                      <option key={w} value={w} style={{ background: "var(--bg-card)", color: "var(--text-primary)" }}>
+                        {w % 1 === 0 ? `${w} kg` : `${w.toFixed(1)} kg`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

@@ -928,6 +928,13 @@ export function PlannerProvider({ children }) {
     await updateDoc(profileDocRef, { proteinTarget: parseInt(newTarget) || 0 });
   };
 
+  const deleteHistoryLog = async (logId) => {
+    if (!currentUser || !logId) return;
+    const uid = currentUser.uid;
+    const historyDocRef = doc(db, "users", uid, "history", logId);
+    await deleteDoc(historyDocRef);
+  };
+
   const value = {
     profile,
     onboarded,
@@ -949,6 +956,7 @@ export function PlannerProvider({ children }) {
     editFoodRef,
     deleteFoodRef,
     updateProteinTarget,
+    deleteHistoryLog,
 
     // Active session states
     activeTimer,

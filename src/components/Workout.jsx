@@ -29,6 +29,10 @@ const DAYS_CONFIG = [
   { key: "day7", label: "Rest" }
 ];
 
+// 2.5 kg Increment Weight Options Generator (0 kg to 300 kg)
+const WEIGHT_OPTIONS = Array.from({ length: 121 }, (_, i) => i * 2.5);
+const formatWeightLabel = (w) => (w % 1 === 0 ? `${w} kg` : `${w.toFixed(1)} kg`);
+
 export default function Workout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -133,7 +137,7 @@ export default function Workout() {
     let total = 0;
     Object.keys(dayDiet.meals || {}).forEach((mealKey) => {
       (dayDiet.meals[mealKey] || []).forEach((item) => {
-        total += (item.proteinPerServing || 0) * (item.quantity || 1);
+        total += (parseInt(item.proteinPerServing ?? item.protein) || 0) * (parseInt(item.quantity) || 1);
       });
     });
     return total;
@@ -143,15 +147,11 @@ export default function Workout() {
   const proteinTarget = profile?.proteinTarget || 100;
   const isProteinAchieved = proteinToday >= proteinTarget;
 
-  // Toggle single set completion state (Manual timer independent)
+  // Toggle single set completion state (Rest timer is manual only)
   const handleToggleSet = (exIndex, setIndex, currentStatus) => {
     const nextStatus = !currentStatus;
     updateExerciseSet(selectedDay, exIndex, setIndex, { completed: nextStatus });
-
-    // Rest timer trigger if checking complete and rest timer not active
-    if (nextStatus && !restActive) {
-      startRest(90);
-    }
+    // Note: Rest timer must be started manually by user (Feature 3 requirement)
   };
 
   // Smart Progressive Overload Calculator
@@ -356,10 +356,13 @@ export default function Workout() {
               <div className="rest-time-text">{restSeconds}s</div>
             </div>
 
-            <div className="rest-quick-pills">
+            {/* Rest Presets (30s, 60s, 90s, 120s, 180s) */}
+            <div className="rest-quick-pills" style={{ flexWrap: "wrap", gap: "6px" }}>
+              <button className="rest-pill-btn" onClick={() => startRest(30)}>30s</button>
               <button className="rest-pill-btn" onClick={() => startRest(60)}>60s</button>
               <button className="rest-pill-btn" onClick={() => startRest(90)}>90s</button>
               <button className="rest-pill-btn" onClick={() => startRest(120)}>120s</button>
+              <button className="rest-pill-btn" onClick={() => startRest(180)}>180s</button>
             </div>
 
             <div className="rest-controls-row">
@@ -429,9 +432,9 @@ export default function Workout() {
 
                       {/* Per-Set Gym Logging Table */}
                       <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "55px 1fr 1fr 44px", gap: "8px", padding: "0 4px", fontSize: "0.65rem", fontFamily: "var(--font-mono)", color: "var(--text-muted)", textTransform: "uppercase" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "55px 1.2fr 1fr 44px", gap: "8px", padding: "0 4px", fontSize: "0.65rem", fontFamily: "var(--font-mono)", color: "var(--text-muted)", textTransform: "uppercase" }}>
                           <span>SET</span>
-                          <span>WEIGHT (KG)</span>
+                          <span>WEIGHT</span>
                           <span>REPS</span>
                           <span style={{ textAlign: "center" }}>DONE</span>
                         </div>
@@ -441,7 +444,7 @@ export default function Workout() {
                             key={setIdx}
                             style={{
                               display: "grid",
-                              gridTemplateColumns: "55px 1fr 1fr 44px",
+                              gridTemplateColumns: "55px 1.2fr 1fr 44px",
                               gap: "8px",
                               alignItems: "center",
                               background: setObj.completed ? "rgba(34, 197, 94, 0.08)" : "var(--bg-secondary)",
@@ -455,15 +458,20 @@ export default function Workout() {
                               Set {setObj.setNum}
                             </span>
 
-                            <div className="premium-input-box" style={{ height: "36px", background: "var(--bg-card)" }}>
-                              <input 
-                                type="number"
+                            {/* 2.5 kg Increment Weight Selector Dropdown */}
+                            <div className="premium-input-box" style={{ height: "36px", background: "var(--bg-card)", padding: "0 4px" }}>
+                              <select 
                                 className="premium-inner-input"
-                                style={{ fontSize: "0.85rem", padding: "0 6px" }}
+                                style={{ fontSize: "0.85rem", padding: "0 2px", cursor: "pointer", background: "transparent", border: "none", color: "var(--text-primary)", fontWeight: "700" }}
                                 value={setObj.weight || 0}
                                 onChange={(e) => updateExerciseSet(selectedDay, index, setIdx, { weight: Number(e.target.value) })}
-                              />
-                              <span className="premium-input-unit" style={{ fontSize: "0.65rem" }}>kg</span>
+                              >
+                                {WEIGHT_OPTIONS.map((w) => (
+                                  <option key={w} value={w} style={{ background: "var(--bg-card)", color: "var(--text-primary)" }}>
+                                    {formatWeightLabel(w)}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
 
                             <div className="premium-input-box" style={{ height: "36px", background: "var(--bg-card)" }}>
