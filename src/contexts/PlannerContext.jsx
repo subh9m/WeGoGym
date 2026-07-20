@@ -877,30 +877,77 @@ export function PlannerProvider({ children }) {
   // ==========================================
   // Food Reference CRUD
   // ==========================================
-  const addFoodRef = async (name, serving, protein) => {
+  // ==========================================
+  // Food Reference CRUD
+  // ==========================================
+  const addFoodRef = async (dataOrName, serving, protein) => {
     if (!currentUser) return;
     const uid = currentUser.uid;
     const foodRefColRef = collection(db, "users", uid, "foodReference");
 
-    await addDoc(foodRefColRef, {
-      name,
-      serving,
-      protein: parseInt(protein) || 0
-    });
+    const payload = typeof dataOrName === "object" ? dataOrName : {
+      foodName: dataOrName,
+      name: dataOrName,
+      serving: serving || "100g",
+      referenceQuantity: 100,
+      referenceUnit: "g",
+      protein: parseInt(protein) || 0,
+      calories: Math.round((parseInt(protein) || 0) * 4)
+    };
+
+    const docData = {
+      foodName: payload.foodName || payload.name || "Item",
+      name: payload.name || payload.foodName || "Item",
+      referenceQuantity: Number(payload.referenceQuantity) || 100,
+      referenceUnit: payload.referenceUnit || "g",
+      serving: payload.serving || `${payload.referenceQuantity || 100}${payload.referenceUnit || "g"}`,
+      protein: Number(payload.protein) || 0,
+      calories: Number(payload.calories) || Math.round((Number(payload.protein) || 0) * 4),
+      categoryTag: payload.categoryTag || "Protein",
+      isVeg: Boolean(payload.isVeg),
+      category: payload.category || (payload.isVeg ? "veg" : "nonveg"),
+      aiGenerated: Boolean(payload.aiGenerated),
+      confidence: Number(payload.confidence) || 1.0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await addDoc(foodRefColRef, docData);
   };
 
-  const editFoodRef = async (foodId, name, serving, protein) => {
+  const editFoodRef = async (foodId, dataOrName, serving, protein) => {
     if (!currentUser) return;
     const uid = currentUser.uid;
     const foodRefDocRef = doc(db, "users", uid, "foodReference", foodId);
 
-    await updateDoc(foodRefDocRef, {
-      name,
-      serving,
-      protein: parseInt(protein) || 0
-    });
+    const payload = typeof dataOrName === "object" ? dataOrName : {
+      foodName: dataOrName,
+      name: dataOrName,
+      serving: serving || "100g",
+      referenceQuantity: 100,
+      referenceUnit: "g",
+      protein: parseInt(protein) || 0,
+      calories: Math.round((parseInt(protein) || 0) * 4)
+    };
 
-    await updateCascadeDietReferences(foodId, name, serving, parseInt(protein) || 0);
+    const updateData = {
+      foodName: payload.foodName || payload.name,
+      name: payload.name || payload.foodName,
+      referenceQuantity: Number(payload.referenceQuantity) || 100,
+      referenceUnit: payload.referenceUnit || "g",
+      serving: payload.serving || `${payload.referenceQuantity || 100}${payload.referenceUnit || "g"}`,
+      protein: Number(payload.protein) || 0,
+      calories: Number(payload.calories) || Math.round((Number(payload.protein) || 0) * 4),
+      categoryTag: payload.categoryTag || "Protein",
+      isVeg: Boolean(payload.isVeg),
+      category: payload.category || (payload.isVeg ? "veg" : "nonveg"),
+      aiGenerated: Boolean(payload.aiGenerated),
+      confidence: Number(payload.confidence) || 1.0,
+      updatedAt: new Date().toISOString()
+    };
+
+    await updateDoc(foodRefDocRef, updateData);
+    await updateCascadeDietReferences(foodId, updateData.name, updateData.serving, updateData.protein, updateData.calories);
   };
 
   const deleteFoodRef = async (foodId) => {
@@ -911,7 +958,7 @@ export function PlannerProvider({ children }) {
     await deleteDoc(foodRefDocRef);
   };
 
-  const updateCascadeDietReferences = async (refId, newName, newServing, newProtein) => {
+  const updateCascadeDietReferences = async (refId, newName, newServing, newProtein, newCalories) => {
     if (!currentUser) return;
     const uid = currentUser.uid;
 
@@ -930,8 +977,11 @@ export function PlannerProvider({ children }) {
             return {
               ...foodItem,
               name: newName,
+              foodName: newName,
               serving: newServing,
-              proteinPerServing: newProtein
+              proteinPerServing: newProtein,
+              protein: newProtein,
+              calories: newCalories || Math.round(newProtein * 4)
             };
           }
           return foodItem;

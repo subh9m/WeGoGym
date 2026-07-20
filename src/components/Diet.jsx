@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   Coffee, 
   Utensils, 
@@ -10,7 +10,8 @@ import {
   Search,
   CheckCircle2,
   X,
-  Minus
+  Minus,
+  Zap
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -46,35 +47,58 @@ export default function Diet() {
   const dayDiet = diets[selectedDay] || { meals: { breakfast: [], lunch: [], snacks: [], dinner: [] } };
   const proteinTarget = profile?.proteinTarget || 100;
 
-  const getDayTotalProtein = () => {
-    let total = 0;
+  // Formula: (stored / referenceQuantity) * selectedQuantity
+  const getDayTotalProteinAndCalories = () => {
+    let totalProtein = 0;
+    let totalCalories = 0;
     Object.keys(dayDiet.meals || {}).forEach((mealKey) => {
       (dayDiet.meals[mealKey] || []).forEach((item) => {
-        const pVal = parseInt(item.proteinPerServing ?? item.protein) || 0;
-        const qVal = parseInt(item.quantity) || 1;
-        total += pVal * qVal;
+        const storedProtein = Number(item.proteinPerServing ?? item.protein ?? 0);
+        const storedCalories = Number(item.calories ?? storedProtein * 4);
+        const refQty = Number(item.referenceQuantity) || 1;
+        const selQty = Number(item.quantity) || 1;
+
+        totalProtein += (storedProtein / refQty) * selQty;
+        totalCalories += (storedCalories / refQty) * selQty;
       });
     });
-    return total;
+    return {
+      totalProtein: Math.round(totalProtein),
+      totalCalories: Math.round(totalCalories)
+    };
   };
 
-  const dayTotalProtein = getDayTotalProtein();
+  const { totalProtein: dayTotalProtein, totalCalories: dayTotalCalories } = getDayTotalProteinAndCalories();
   const progressPct = Math.min(100, Math.round((dayTotalProtein / proteinTarget) * 100));
   const isGoalAchieved = dayTotalProtein >= proteinTarget;
 
   const filteredFoods = (foodReferences || []).filter((food) => {
-    return food.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const fName = food.foodName || food.name || "";
+    return fName.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const handleAddFoodSelect = (food) => {
     if (!activeMealKey) return;
+    
+    const refQty = Number(food.referenceQuantity) || 100;
+    const refUnit = food.referenceUnit || "g";
+
+    // NO AI CALL HERE - Diet page uses stored master database reference values directly
     addFoodToMeal(selectedDay, activeMealKey, {
+      foodReferenceId: food.id,
       id: food.id,
-      foodName: food.name,
-      proteinPerServing: food.protein,
-      serving: food.serving,
-      quantity: 1
+      foodName: food.foodName || food.name,
+      name: food.foodName || food.name,
+      referenceQuantity: refQty,
+      referenceUnit: refUnit,
+      proteinPerServing: Number(food.protein) || 0,
+      protein: Number(food.protein) || 0,
+      calories: Number(food.calories) || Math.round((Number(food.protein) || 0) * 4),
+      serving: food.serving || `${refQty}${refUnit}`,
+      quantity: refQty,
+      unit: refUnit
     });
+
     setActiveMealKey(null);
     setSearchQuery("");
   };
@@ -132,6 +156,13 @@ export default function Diet() {
             </div>
           </div>
         </div>
+
+        <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "12px 18px", borderRadius: "14px", textAlign: "right" }}>
+          <span className="nothing-label" style={{ fontSize: "0.65rem" }}>TOTAL DAILY CALORIES</span>
+          <div style={{ fontSize: "1.5rem", fontWeight: "900", color: "var(--accent-push)", marginTop: "2px" }}>
+            {dayTotalCalories} <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>kcal</span>
+          </div>
+        </div>
       </div>
 
       {/* Meal Breakdown Grid */}
@@ -141,10 +172,15 @@ export default function Diet() {
           const mealItems = dayDiet.meals?.[meal.key] || [];
 
           let mealProtein = 0;
+          let mealCalories = 0;
           mealItems.forEach((item) => {
-            const pVal = parseInt(item.proteinPerServing ?? item.protein) || 0;
-            const qVal = parseInt(item.quantity) || 1;
-            mealProtein += pVal * qVal;
+            const storedP = Number(item.proteinPerServing ?? item.protein ?? 0);
+            const storedC = Number(item.calories ?? storedP * 4);
+            const refQ = Number(item.referenceQuantity) || 1;
+            const selQ = Number(item.quantity) || 1;
+
+            mealProtein += (storedP / refQ) * selQ;
+            mealCalories += (storedC / refQ) * selQ;
           });
 
           return (
@@ -160,15 +196,25 @@ export default function Diet() {
                     </span>
                   </div>
 
-                  <span style={{ fontFamily: "var(--font-mono)", fontWeight: "800", color: "var(--accent-protein)", fontSize: "1.1rem" }}>
-                    {mealProtein}g
-                  </span>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: "800", color: "var(--accent-protein)", fontSize: "1.1rem" }}>
+                      {Math.round(mealProtein)}g
+                    </span>
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
+                      {Math.round(mealCalories)} kcal
+                    </div>
+                  </div>
                 </div>
 
-                {/* Logged Item Chips with Quantity Modifiers */}
+                {/* Logged Item Chips with Portion Scaling Controls */}
                 <div className="meal-chip-list">
                   {mealItems.map((item, idx) => {
-                    const itemProt = (parseInt(item.proteinPerServing ?? item.protein) || 0) * (parseInt(item.quantity) || 1);
+                    const storedP = Number(item.proteinPerServing ?? item.protein ?? 0);
+                    const refQ = Number(item.referenceQuantity) || 1;
+                    const selQ = Number(item.quantity) || 1;
+                    const itemProt = Math.round((storedP / refQ) * selQ);
+                    const unitLabel = item.referenceUnit || item.unit || "g";
+
                     return (
                       <div key={idx} className="food-item-chip" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span>{item.foodName || item.name}</span>
@@ -179,16 +225,18 @@ export default function Diet() {
                         <div style={{ display: "flex", alignItems: "center", gap: "3px", background: "var(--bg-card)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
                           <button 
                             style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}
-                            onClick={() => updateFoodQuantity(selectedDay, meal.key, idx, -1)}
-                            title="Decrease quantity"
+                            onClick={() => updateFoodQuantity(selectedDay, meal.key, idx, -10)}
+                            title="Decrease portion"
                           >
                             <Minus size={10} />
                           </button>
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", fontWeight: "800" }}>{item.quantity || 1}x</span>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", fontWeight: "800" }}>
+                            {selQ}{unitLabel}
+                          </span>
                           <button 
                             style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}
-                            onClick={() => updateFoodQuantity(selectedDay, meal.key, idx, 1)}
-                            title="Increase quantity"
+                            onClick={() => updateFoodQuantity(selectedDay, meal.key, idx, 10)}
+                            title="Increase portion"
                           >
                             <Plus size={10} />
                           </button>
@@ -243,7 +291,7 @@ export default function Diet() {
               <input 
                 type="text"
                 className="premium-inner-input"
-                placeholder="Search food library..."
+                placeholder="Search food master database..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 autoFocus
@@ -267,14 +315,21 @@ export default function Diet() {
                   onClick={() => handleAddFoodSelect(food)}
                 >
                   <div>
-                    <div style={{ fontWeight: "700", fontSize: "0.9rem" }}>{food.name}</div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{food.serving}</div>
+                    <div style={{ fontWeight: "700", fontSize: "0.9rem" }}>{food.foodName || food.name}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                      Ref: {food.serving || `${food.referenceQuantity || 100}${food.referenceUnit || "g"}`}
+                    </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontWeight: "800", fontFamily: "var(--font-mono)", color: "var(--accent-protein)", fontSize: "0.95rem" }}>
-                      {food.protein}g
-                    </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <div style={{ textAlign: "right" }}>
+                      <span style={{ fontWeight: "800", fontFamily: "var(--font-mono)", color: "var(--accent-protein)", fontSize: "0.95rem", display: "block" }}>
+                        {food.protein}g
+                      </span>
+                      <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
+                        {food.calories || Math.round(food.protein * 4)} kcal
+                      </span>
+                    </div>
                     <Plus size={16} color="var(--text-secondary)" />
                   </div>
                 </div>
@@ -282,7 +337,7 @@ export default function Diet() {
 
               {filteredFoods.length === 0 && (
                 <div style={{ textAlign: "center", padding: "20px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                  No matching foods found.
+                  No matching foods found in master database.
                 </div>
               )}
             </div>

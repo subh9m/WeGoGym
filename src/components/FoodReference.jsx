@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { usePlanner } from "../contexts/PlannerContext";
+import { useAuth } from "../contexts/AuthContext";
 import { motion } from "framer-motion";
 import { 
   Search, 
@@ -14,8 +15,13 @@ import {
   Wheat, 
   Flame, 
   Utensils, 
-  X
+  X,
+  Sparkles,
+  AlertCircle,
+  Check,
+  Zap
 } from "lucide-react";
+import { analyzeFoodWithGemini } from "../services/aiService";
 
 const FILTER_CHIPS = [
   { id: "all", label: "All Items", icon: Compass, activeClass: "active-all" },
@@ -28,7 +34,10 @@ const FILTER_CHIPS = [
   { id: "fruits", label: "Fruits & Veg", icon: Apple, activeClass: "active-fruits" }
 ];
 
+const UNIT_OPTIONS = ["g", "ml", "piece", "cup", "oz", "tbsp", "serving"];
+
 export default function FoodReference() {
+  const { currentUser } = useAuth();
   const { foodReferences, addFoodRef, editFoodRef, deleteFoodRef } = usePlanner();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -38,15 +47,24 @@ export default function FoodReference() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Dialog State
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
+  // Form Fields
   const [foodName, setFoodName] = useState("");
-  const [serving, setServing] = useState("");
-  const [protein, setProtein] = useState(10);
+  const [refQuantity, setRefQuantity] = useState(100);
+  const [refUnit, setRefUnit] = useState("g");
+  const [protein, setProtein] = useState(20);
+  const [calories, setCalories] = useState(150);
   const [categoryTag, setCategoryTag] = useState("Protein");
   const [isVegOption, setIsVegOption] = useState(true);
+
+  // AI Estimation States
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiPreview, setAiPreview] = useState(null);
+  const [aiError, setAiError] = useState("");
 
   useEffect(() => {
     localStorage.setItem("wegogym_food_favorites", JSON.stringify(favorites));
@@ -66,7 +84,7 @@ export default function FoodReference() {
     if (food.category === "veg") return true;
     if (food.category === "nonveg") return false;
     const vegKeywords = ["milk", "paneer", "soya", "oats", "peanut", "banana", "dal", "rajma", "chana", "yogurt", "rice", "bread", "apple", "fruit", "curd"];
-    const nameLower = (food.name || "").toLowerCase();
+    const nameLower = (food.name || food.foodName || "").toLowerCase();
     return vegKeywords.some(kw => nameLower.includes(kw));
   };
 
@@ -74,10 +92,14 @@ export default function FoodReference() {
     setIsEditing(false);
     setEditingId(null);
     setFoodName("");
-    setServing("100g");
-    setProtein(15);
+    setRefQuantity(100);
+    setRefUnit("g");
+    setProtein(20);
+    setCalories(150);
     setCategoryTag("Protein");
     setIsVegOption(true);
+    setAiPreview(null);
+    setAiError("");
     setModalOpen(true);
   };
 
@@ -85,12 +107,46 @@ export default function FoodReference() {
     e.stopPropagation();
     setIsEditing(true);
     setEditingId(food.id);
-    setFoodName(food.name);
-    setServing(food.serving);
-    setProtein(food.protein);
+    setFoodName(food.foodName || food.name);
+    setRefQuantity(food.referenceQuantity || parseInt(food.serving) || 100);
+    setRefUnit(food.referenceUnit || "g");
+    setProtein(food.protein || 0);
+    setCalories(food.calories || Math.round((food.protein || 0) * 4));
     setCategoryTag(food.categoryTag || "Protein");
     setIsVegOption(isVegFood(food));
+    setAiPreview(null);
+    setAiError("");
     setModalOpen(true);
+  };
+
+  // AI Estimation Handler
+  const handleAnalyzeWithAI = async () => {
+    if (!foodName.trim()) {
+      setAiError("Please enter a food name first.");
+      return;
+    }
+
+    setAiError("");
+    setIsAnalyzing(true);
+    setAiPreview(null);
+
+    try {
+      const uid = currentUser ? currentUser.uid : null;
+      const result = await analyzeFoodWithGemini(uid, foodName, refQuantity, refUnit);
+
+      setProtein(result.protein);
+      setCalories(result.calories);
+      setAiPreview(result);
+
+      if (result.lowConfidenceWarning) {
+        setAiError(result.lowConfidenceWarning);
+      }
+    } catch (err) {
+      console.error("AI estimation failed:", err);
+      setAiError(err.message || "Unable to estimate nutrition.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleFormSubmit = async (e) => {
@@ -98,12 +154,18 @@ export default function FoodReference() {
     if (!foodName.trim()) return;
 
     const payload = {
-      name: foodName,
-      serving: serving || "1 serving",
-      protein: Number(protein),
+      foodName: foodName.trim(),
+      name: foodName.trim(),
+      referenceQuantity: Number(refQuantity) || 100,
+      referenceUnit: refUnit,
+      serving: `${refQuantity}${refUnit}`,
+      protein: Number(protein) || 0,
+      calories: Number(calories) || Math.round((Number(protein) || 0) * 4),
       categoryTag: categoryTag,
       isVeg: isVegOption,
-      category: isVegOption ? "veg" : "nonveg"
+      category: isVegOption ? "veg" : "nonveg",
+      aiGenerated: Boolean(aiPreview && !aiPreview.cached),
+      confidence: aiPreview ? aiPreview.confidence : 1.0
     };
 
     if (isEditing && editingId) {
@@ -117,14 +179,15 @@ export default function FoodReference() {
   const getCategoryMeta = (food) => {
     const isVeg = isVegFood(food);
     const proteinVal = food.protein || 0;
+    const foodTitle = (food.foodName || food.name || "").toLowerCase();
 
-    if (food.category === "dairy" || food.name.toLowerCase().includes("milk") || food.name.toLowerCase().includes("paneer")) {
+    if (food.category === "dairy" || foodTitle.includes("milk") || foodTitle.includes("paneer")) {
       return { label: isVeg ? "Dairy (Veg)" : "Dairy", icon: <Milk size={18} color="var(--accent-blue)" />, badgeClass: "muscle-pull" };
     }
-    if (food.category === "grains" || food.name.toLowerCase().includes("oats") || food.name.toLowerCase().includes("chana")) {
+    if (food.category === "grains" || foodTitle.includes("oats") || foodTitle.includes("chana")) {
       return { label: "Grains", icon: <Wheat size={18} color="var(--accent-abs)" />, badgeClass: "muscle-abs" };
     }
-    if (food.category === "fruits" || food.name.toLowerCase().includes("banana") || food.name.toLowerCase().includes("apple")) {
+    if (food.category === "fruits" || foodTitle.includes("banana") || foodTitle.includes("apple")) {
       return { label: "Fruit/Veg", icon: <Apple size={18} color="var(--accent-legs)" />, badgeClass: "muscle-legs" };
     }
     if (proteinVal >= 25) {
@@ -137,7 +200,8 @@ export default function FoodReference() {
   };
 
   const filteredFoods = (foodReferences || []).filter((food) => {
-    const matchesSearch = food.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const fname = food.foodName || food.name || "";
+    const matchesSearch = fname.toLowerCase().includes(searchQuery.toLowerCase());
     const isFav = favorites.includes(food.id);
     const isVeg = isVegFood(food);
 
@@ -162,7 +226,7 @@ export default function FoodReference() {
           Food Library
         </h1>
         <p className="nothing-label" style={{ fontSize: "0.75rem" }}>
-          Nutritional Reference Database & Custom Entries
+          Master Nutrition Database & Gemini AI Assisted Entries
         </p>
       </div>
 
@@ -172,7 +236,7 @@ export default function FoodReference() {
           <input 
             type="text" 
             className="premium-inner-input" 
-            placeholder="Search food entries by name..."
+            placeholder="Search master food entries..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -206,6 +270,7 @@ export default function FoodReference() {
         {filteredFoods.map((food) => {
           const isFav = favorites.includes(food.id);
           const meta = getCategoryMeta(food);
+          const displayCals = food.calories || Math.round((food.protein || 0) * 4);
 
           return (
             <motion.div 
@@ -222,10 +287,10 @@ export default function FoodReference() {
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
                       <span style={{ fontSize: "1rem", fontWeight: "800", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {food.name}
+                        {food.foodName || food.name}
                       </span>
                       <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "500" }}>
-                        {food.serving}
+                        {food.serving || `${food.referenceQuantity || 100}${food.referenceUnit || "g"}`}
                       </span>
                     </div>
                   </div>
@@ -234,8 +299,8 @@ export default function FoodReference() {
                     <span style={{ fontSize: "1.3rem", fontWeight: "900", fontFamily: "var(--font-mono)", color: "var(--text-primary)", lineHeight: 1 }}>
                       {food.protein}g
                     </span>
-                    <span style={{ fontSize: "0.55rem", color: "var(--text-muted)", textTransform: "uppercase", marginTop: "2px", fontWeight: "700" }}>
-                      Protein
+                    <span style={{ fontSize: "0.7rem", color: "var(--accent-push)", fontWeight: "700", marginTop: "2px" }}>
+                      {displayCals} kcal
                     </span>
                   </div>
                 </div>
@@ -243,9 +308,16 @@ export default function FoodReference() {
 
               {/* Actions & Category Badge Footer Row */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border-color)" }}>
-                <span className={`exercise-badge-muscle ${meta.badgeClass}`} style={{ fontSize: "0.6rem", margin: 0 }}>
-                  {meta.label}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span className={`exercise-badge-muscle ${meta.badgeClass}`} style={{ fontSize: "0.6rem", margin: 0 }}>
+                    {meta.label}
+                  </span>
+                  {food.aiGenerated && (
+                    <span style={{ fontSize: "0.55rem", background: "rgba(168, 85, 247, 0.15)", color: "var(--accent-protein)", border: "1px solid var(--accent-protein)", padding: "2px 6px", borderRadius: "8px", fontWeight: "700", display: "flex", alignItems: "center", gap: "3px" }}>
+                      <Sparkles size={10} /> AI
+                    </span>
+                  )}
+                </div>
 
                 <div className="food-card-actions">
                   <button 
@@ -278,13 +350,13 @@ export default function FoodReference() {
         })}
       </div>
 
-      {/* Modal Dialog Form */}
+      {/* Add / Edit Food Modal Dialog */}
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px" }}>
             <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
               <span className="nothing-title" style={{ fontSize: "1.1rem" }}>
-                {isEditing ? "Edit Food Reference" : "Create New Food Entry"}
+                {isEditing ? "Edit Food Entry" : "Create Master Food Entry"}
               </span>
               <button className="header-action-btn" onClick={() => setModalOpen(false)}>
                 <X size={18} />
@@ -292,13 +364,14 @@ export default function FoodReference() {
             </div>
 
             <form onSubmit={handleFormSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Food Name Input */}
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <label className="nothing-label" style={{ fontSize: "0.65rem" }}>FOOD NAME</label>
                 <div className="premium-input-box">
                   <input 
                     type="text" 
                     className="premium-inner-input" 
-                    placeholder="e.g. Chicken Breast"
+                    placeholder="e.g. Chicken Breast, Paneer, Milk, Banana"
                     value={foodName}
                     onChange={(e) => setFoodName(e.target.value)}
                     required
@@ -306,41 +379,129 @@ export default function FoodReference() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>SERVING SIZE</label>
-                <div className="premium-input-box">
-                  <input 
-                    type="text" 
-                    className="premium-inner-input" 
-                    placeholder="e.g. 100g or 1 cup"
-                    value={serving}
-                    onChange={(e) => setServing(e.target.value)}
-                    required
-                  />
+              {/* Reference Quantity & Unit Selection Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>REFERENCE QUANTITY</label>
+                  <div className="premium-input-box">
+                    <input 
+                      type="number" 
+                      className="premium-inner-input" 
+                      placeholder="100"
+                      value={refQuantity}
+                      onChange={(e) => setRefQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>REFERENCE UNIT</label>
+                  <select 
+                    className="premium-input-box"
+                    style={{ height: "42px", background: "var(--bg-secondary)", padding: "0 12px", fontSize: "0.85rem", fontWeight: "700" }}
+                    value={refUnit}
+                    onChange={(e) => setRefUnit(e.target.value)}
+                  >
+                    {UNIT_OPTIONS.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>PROTEIN (GRAMS)</label>
-                <div className="premium-input-box">
-                  <input 
-                    type="number" 
-                    className="premium-inner-input" 
-                    value={protein}
-                    onChange={(e) => setProtein(e.target.value)}
-                    required
-                  />
-                  <span className="premium-input-unit">grams</span>
+              {/* "Analyze with AI" Action Trigger Button */}
+              <button 
+                type="button" 
+                className="btn-premium-secondary" 
+                onClick={handleAnalyzeWithAI}
+                disabled={isAnalyzing}
+                style={{ height: "44px", border: "1px solid var(--accent-protein)", color: "var(--accent-protein)", justifyContent: "center" }}
+              >
+                <Sparkles size={16} />
+                {isAnalyzing ? "Estimating with Gemini AI..." : "Analyze with AI"}
+              </button>
+
+              {/* AI Loading State Banner */}
+              {isAnalyzing && (
+                <div style={{ background: "rgba(168, 85, 247, 0.1)", border: "1px solid var(--accent-protein)", color: "var(--accent-protein)", padding: "12px", borderRadius: "12px", fontSize: "0.85rem", fontWeight: "600", display: "flex", alignItems: "center", gap: "10px", justifyContent: "center" }}>
+                  <Sparkles className="spin-slow" size={18} /> ✨ Estimating nutrition with Gemini AI...
+                </div>
+              )}
+
+              {/* AI Preview Box */}
+              {aiPreview && !isAnalyzing && (
+                <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--accent-protein)", padding: "14px", borderRadius: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.8rem", fontWeight: "800", color: "var(--accent-protein)", display: "flex", alignItems: "center", gap: "6px" }}>
+                      {aiPreview.cached ? <Zap size={14} /> : <Sparkles size={14} />} 
+                      {aiPreview.cached ? "Loaded from Master Cache" : "Gemini AI Nutrition Preview"}
+                    </span>
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
+                      Confidence: {Math.round((aiPreview.confidence || 0.9) * 100)}%
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <div style={{ background: "var(--bg-card)", padding: "10px", borderRadius: "10px" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.6rem" }}>ESTIMATED PROTEIN</span>
+                      <div style={{ fontSize: "1.2rem", fontWeight: "900", color: "var(--text-primary)" }}>{aiPreview.protein}g</div>
+                    </div>
+
+                    <div style={{ background: "var(--bg-card)", padding: "10px", borderRadius: "10px" }}>
+                      <span className="nothing-label" style={{ fontSize: "0.6rem" }}>ESTIMATED CALORIES</span>
+                      <div style={{ fontSize: "1.2rem", fontWeight: "900", color: "var(--accent-push)" }}>{aiPreview.calories} kcal</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Error / Low Confidence Alert */}
+              {aiError && (
+                <div className="auth-error-msg" style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
+                  <AlertCircle size={16} /> {aiError}
+                </div>
+              )}
+
+              {/* Protein & Calories Numeric Preview / Edit Inputs */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>PROTEIN (GRAMS)</label>
+                  <div className="premium-input-box">
+                    <input 
+                      type="number" 
+                      className="premium-inner-input" 
+                      value={protein}
+                      onChange={(e) => setProtein(e.target.value)}
+                      required
+                    />
+                    <span className="premium-input-unit">g</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label className="nothing-label" style={{ fontSize: "0.65rem" }}>CALORIES (KCAL)</label>
+                  <div className="premium-input-box">
+                    <input 
+                      type="number" 
+                      className="premium-inner-input" 
+                      value={calories}
+                      onChange={(e) => setCalories(e.target.value)}
+                      required
+                    />
+                    <span className="premium-input-unit">kcal</span>
+                  </div>
                 </div>
               </div>
 
+              {/* Diet Type Selection */}
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <label className="nothing-label" style={{ fontSize: "0.65rem" }}>DIET TYPE</label>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button
                     type="button"
                     className="btn-premium-secondary"
-                    style={{ flex: 1, height: "44px", background: isVegOption ? "var(--text-primary)" : "transparent", color: isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
+                    style={{ flex: 1, height: "42px", background: isVegOption ? "var(--text-primary)" : "transparent", color: isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
                     onClick={() => setIsVegOption(true)}
                   >
                     Vegetarian
@@ -348,7 +509,7 @@ export default function FoodReference() {
                   <button
                     type="button"
                     className="btn-premium-secondary"
-                    style={{ flex: 1, height: "44px", background: !isVegOption ? "var(--text-primary)" : "transparent", color: !isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
+                    style={{ flex: 1, height: "42px", background: !isVegOption ? "var(--text-primary)" : "transparent", color: !isVegOption ? "var(--bg-primary)" : "var(--text-primary)" }}
                     onClick={() => setIsVegOption(false)}
                   >
                     Non-Veg
@@ -356,8 +517,8 @@ export default function FoodReference() {
                 </div>
               </div>
 
-              <button type="submit" className="btn-premium-primary" style={{ marginTop: "10px" }}>
-                {isEditing ? "Save Entry Changes" : "Create Reference Item"}
+              <button type="submit" className="btn-premium-primary" style={{ marginTop: "10px", height: "46px" }}>
+                {isEditing ? "Save Entry Changes" : "Save to Master Food Library"}
               </button>
             </form>
           </div>
