@@ -683,6 +683,52 @@ export function PlannerProvider({ children }) {
   };
 
   // ==========================================
+  // Global Rest Timer Handles
+  // ==========================================
+  const startRest = (seconds) => {
+    setRestInitial(seconds);
+    setRestSeconds(seconds);
+    setRestActive(true);
+
+    const cache = {
+      secondsRemaining: seconds,
+      isActive: true,
+      initialSeconds: seconds,
+      lastUpdated: Date.now()
+    };
+    localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
+  };
+
+  const pauseRest = () => {
+    setRestActive(false);
+    const cache = {
+      secondsRemaining: restSeconds,
+      isActive: false,
+      initialSeconds: restInitial,
+      lastUpdated: Date.now()
+    };
+    localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
+  };
+
+  const resumeRest = () => {
+    if (restSeconds <= 0) return;
+    setRestActive(true);
+    const cache = {
+      secondsRemaining: restSeconds,
+      isActive: true,
+      initialSeconds: restInitial,
+      lastUpdated: Date.now()
+    };
+    localStorage.setItem("wegogym_rest_timer", JSON.stringify(cache));
+  };
+
+  const resetRest = () => {
+    setRestSeconds(0);
+    setRestActive(false);
+    localStorage.removeItem("wegogym_rest_timer");
+  };
+
+  // ==========================================
   // Standard Workout Updates & Per-Set Logging
   // ==========================================
   const updateExerciseSet = async (dayKey, exerciseIndex, setIndex, updatedSetFields) => {
