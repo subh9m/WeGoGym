@@ -873,6 +873,49 @@ export function PlannerProvider({ children }) {
     await updateDietMeals(dayKey, updatedMeals);
   };
 
+  const addBatchFoodsToMeal = async (dayKey, mealKey, foodItemsList) => {
+    const dayDiet = diets[dayKey];
+    if (!dayDiet || !Array.isArray(foodItemsList) || foodItemsList.length === 0) return;
+
+    const updatedMeals = { ...dayDiet.meals };
+    if (!updatedMeals[mealKey]) {
+      updatedMeals[mealKey] = [];
+    }
+
+    foodItemsList.forEach((item) => {
+      const pVal = Number(item.proteinPerServing ?? item.protein ?? 0);
+      const cVal = Number(item.calories ?? Math.round(pVal * 4));
+      const fVal = Number(item.fat ?? 0);
+      const carbVal = Number(item.carbs ?? 0);
+      const fibVal = Number(item.fiber ?? 0);
+      const nameVal = item.foodName || item.name || "Food Item";
+      const refQ = Number(item.referenceQuantity) || 100;
+      const refU = item.referenceUnit || item.unit || "g";
+      const servingVal = item.serving || `${refQ}${refU}`;
+      const qty = Number(item.quantity) || refQ;
+
+      updatedMeals[mealKey].push({
+        refId: item.id || item.refId || "",
+        foodReferenceId: item.id || item.refId || "",
+        name: nameVal,
+        foodName: nameVal,
+        serving: servingVal,
+        referenceQuantity: refQ,
+        referenceUnit: refU,
+        proteinPerServing: pVal,
+        protein: pVal,
+        calories: cVal,
+        fat: fVal,
+        carbs: carbVal,
+        fiber: fibVal,
+        quantity: qty,
+        unit: refU
+      });
+    });
+
+    await updateDietMeals(dayKey, updatedMeals);
+  };
+
   const removeFoodFromMeal = async (dayKey, mealKey, index) => {
     const dayDiet = diets[dayKey];
     if (!dayDiet) return;
@@ -1112,6 +1155,7 @@ export function PlannerProvider({ children }) {
     updateExerciseSet,
     getSetsList,
     addFoodToMeal,
+    addBatchFoodsToMeal,
     removeFoodFromMeal,
     updateFoodQuantity,
     updateLoggedFoodItem,

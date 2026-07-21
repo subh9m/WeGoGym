@@ -10,7 +10,10 @@ import {
   Search,
   X,
   Minus,
-  Edit3
+  Edit3,
+  Check,
+  CheckCircle2,
+  Layers
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -31,11 +34,14 @@ const MEALS_CONFIG = [
 ];
 
 export default function Diet() {
-  const { profile, diets, foodReferences, addFoodToMeal, removeFoodFromMeal, updateFoodQuantity, updateLoggedFoodItem } = usePlanner();
+  const { profile, diets, foodReferences, addFoodToMeal, addBatchFoodsToMeal, removeFoodFromMeal, updateFoodQuantity, updateLoggedFoodItem } = usePlanner();
   const [selectedDay, setSelectedDay] = useState("day1");
 
   const [activeMealKey, setActiveMealKey] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Multi-Item Batch Selection State inside Add Food Modal
+  const [selectedBatchFoods, setSelectedBatchFoods] = useState({});
 
   // Manual Edit Logged Food Item Modal States
   const [editingLogItem, setEditingLogItem] = useState(null);
@@ -313,22 +319,40 @@ export default function Diet() {
             </div>
           );
         })}
-      </div>
-
-      {/* Front Modal Food Selection Overlay */}
+      </div>      {/* Front Modal Multi-Food Selection Overlay */}
       {activeMealKey && (
         <div className="modal-overlay" onClick={() => setActiveMealKey(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
-              <span className="nothing-title" style={{ fontSize: "1.1rem" }}>
-                Add to {activeMealKey.toUpperCase()}
-              </span>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "560px" }}>
+            <div className="nothing-card-header" style={{ marginBottom: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Layers size={20} color="var(--accent-protein)" />
+                <span className="nothing-title" style={{ fontSize: "1.1rem" }}>
+                  Add Foods to {activeMealKey.toUpperCase()}
+                </span>
+              </div>
               <button className="header-action-btn" onClick={() => setActiveMealKey(null)}>
                 <X size={18} />
               </button>
             </div>
 
-            <div className="premium-input-box" style={{ marginBottom: "16px" }}>
+            {/* Live Selected Summary Badge Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-secondary)", border: "1px solid var(--border-color)", padding: "10px 14px", borderRadius: "12px", marginBottom: "14px" }}>
+              <div style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--text-secondary)" }}>
+                Selected: <span style={{ color: "var(--accent-protein)", fontWeight: "900", fontFamily: "var(--font-mono)" }}>{Object.keys(selectedBatchFoods).length} items</span>
+              </div>
+              {Object.keys(selectedBatchFoods).length > 0 && (
+                <div style={{ fontSize: "0.8rem", fontWeight: "800", color: "var(--accent-protein)", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span>
+                    +{Math.round(Object.values(selectedBatchFoods).reduce((acc, item) => acc + ((Number(item.protein) || 0) / (Number(item.referenceQuantity) || 1)) * (Number(item.quantity) || 1), 0))}g Protein
+                  </span>
+                  <span style={{ color: "var(--accent-push)" }}>
+                    +{Math.round(Object.values(selectedBatchFoods).reduce((acc, item) => acc + ((Number(item.calories) || Math.round((Number(item.protein) || 0) * 4)) / (Number(item.referenceQuantity) || 1)) * (Number(item.quantity) || 1), 0))} kcal
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="premium-input-box" style={{ marginBottom: "14px" }}>
               <Search size={16} color="var(--text-secondary)" style={{ marginRight: "8px" }} />
               <input 
                 type="text"
@@ -340,46 +364,171 @@ export default function Diet() {
               />
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "340px", overflowY: "auto" }}>
-              {filteredFoods.map((food) => (
-                <div 
-                  key={food.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 14px",
-                    borderRadius: "12px",
-                    background: "var(--bg-secondary)",
-                    border: "1px solid var(--border-color)",
-                    cursor: "pointer"
-                  }}
-                  onClick={() => handleAddFoodSelect(food)}
-                >
-                  <div>
-                    <div style={{ fontWeight: "700", fontSize: "0.9rem" }}>{food.foodName || food.name}</div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                      Ref: {food.serving || `${food.referenceQuantity || 100}${food.referenceUnit || "g"}`}
-                    </div>
-                  </div>
+            {/* Food Master List with Multi-Select Checkboxes & Inline Portion Controls */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
+              {filteredFoods.map((food) => {
+                const isSelected = Boolean(selectedBatchFoods[food.id]);
+                const selectedItemData = selectedBatchFoods[food.id];
+                const refQ = Number(food.referenceQuantity) || 100;
+                const refU = food.referenceUnit || "g";
+                const selQ = selectedItemData ? Number(selectedItemData.quantity) || refQ : refQ;
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <div style={{ textAlign: "right" }}>
-                      <span style={{ fontWeight: "800", fontFamily: "var(--font-mono)", color: "var(--accent-protein)", fontSize: "0.95rem", display: "block" }}>
-                        {food.protein}g P
-                      </span>
-                      <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-                        {food.calories || Math.round(food.protein * 4)} kcal
-                      </span>
+                return (
+                  <div 
+                    key={food.id}
+                    style={{
+                      display: "flex",
+                      justify: "space-between",
+                      alignItems: "center",
+                      padding: "12px 14px",
+                      borderRadius: "12px",
+                      background: isSelected ? "rgba(168, 85, 247, 0.1)" : "var(--bg-secondary)",
+                      border: isSelected ? "1.5px solid var(--accent-protein)" : "1px solid var(--border-color)",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease"
+                    }}
+                    onClick={() => {
+                      const key = food.id;
+                      setSelectedBatchFoods((prev) => {
+                        const next = { ...prev };
+                        if (next[key]) {
+                          delete next[key];
+                        } else {
+                          next[key] = {
+                            ...food,
+                            foodName: food.foodName || food.name,
+                            referenceQuantity: refQ,
+                            referenceUnit: refU,
+                            proteinPerServing: Number(food.protein) || 0,
+                            protein: Number(food.protein) || 0,
+                            calories: Number(food.calories) || Math.round((Number(food.protein) || 0) * 4),
+                            serving: food.serving || `${refQ}${refU}`,
+                            quantity: refQ
+                          };
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: 0 }}>
+                      <div 
+                        style={{
+                          width: "22px",
+                          height: "22px",
+                          borderRadius: "6px",
+                          border: isSelected ? "none" : "1.5px solid var(--border-color)",
+                          background: isSelected ? "var(--accent-protein)" : "var(--bg-card)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0
+                        }}
+                      >
+                        {isSelected && <Check size={14} color="#ffffff" strokeWidth={3} />}
+                      </div>
+
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: "800", fontSize: "0.9rem", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {food.foodName || food.name}
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                          Ref: {food.serving || `${refQ}${refU}`}
+                        </div>
+                      </div>
                     </div>
-                    <Plus size={16} color="var(--text-secondary)" />
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                      {isSelected ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "var(--bg-card)", padding: "2px 8px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
+                          <button 
+                            type="button"
+                            style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}
+                            onClick={() => {
+                              setSelectedBatchFoods((prev) => {
+                                if (!prev[food.id]) return prev;
+                                const item = prev[food.id];
+                                const step = refU === "g" || refU === "ml" ? 10 : 1;
+                                return {
+                                  ...prev,
+                                  [food.id]: {
+                                    ...item,
+                                    quantity: Math.max(1, (Number(item.quantity) || 1) - step)
+                                  }
+                                };
+                              });
+                            }}
+                            title="Decrease portion"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", fontWeight: "800", minWidth: "36px", textAlign: "center" }}>
+                            {selQ}{refU}
+                          </span>
+                          <button 
+                            type="button"
+                            style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}
+                            onClick={() => {
+                              setSelectedBatchFoods((prev) => {
+                                if (!prev[food.id]) return prev;
+                                const item = prev[food.id];
+                                const step = refU === "g" || refU === "ml" ? 10 : 1;
+                                return {
+                                  ...prev,
+                                  [food.id]: {
+                                    ...item,
+                                    quantity: (Number(item.quantity) || 1) + step
+                                  }
+                                };
+                              });
+                            }}
+                            title="Increase portion"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: "right" }}>
+                          <span style={{ fontWeight: "800", fontFamily: "var(--font-mono)", color: "var(--accent-protein)", fontSize: "0.9rem", display: "block" }}>
+                            {food.protein}g P
+                          </span>
+                          <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
+                            {food.calories || Math.round(food.protein * 4)} kcal
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {filteredFoods.length === 0 && (
                 <div style={{ textAlign: "center", padding: "20px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
                   No matching foods found in master database.
+                </div>
+              )}
+            </div>
+
+            {/* Modal Bottom Action Button Bar */}
+            <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-color)", display: "flex", gap: "10px" }}>
+              {Object.keys(selectedBatchFoods).length > 0 ? (
+                <button 
+                  type="button" 
+                  className="btn-premium-primary" 
+                  style={{ width: "100%", height: "46px", justifyContent: "center" }}
+                  onClick={async () => {
+                    const itemsList = Object.values(selectedBatchFoods);
+                    if (!activeMealKey || itemsList.length === 0) return;
+                    await addBatchFoodsToMeal(selectedDay, activeMealKey, itemsList);
+                    setActiveMealKey(null);
+                    setSelectedBatchFoods({});
+                    setSearchQuery("");
+                  }}
+                >
+                  <CheckCircle2 size={18} /> Add {Object.keys(selectedBatchFoods).length} Selected Items to {activeMealKey.toUpperCase()} (+{Math.round(Object.values(selectedBatchFoods).reduce((acc, item) => acc + ((Number(item.protein) || 0) / (Number(item.referenceQuantity) || 1)) * (Number(item.quantity) || 1), 0))}g P)
+                </button>
+              ) : (
+                <div style={{ width: "100%", textAlign: "center", padding: "8px", fontSize: "0.8rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                  Click one or more food items above to select and log to {activeMealKey.toUpperCase()}
                 </div>
               )}
             </div>
