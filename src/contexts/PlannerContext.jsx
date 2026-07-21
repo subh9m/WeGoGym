@@ -900,6 +900,28 @@ export function PlannerProvider({ children }) {
     await updateDietMeals(dayKey, updatedMeals);
   };
 
+  const updateLoggedFoodItem = async (dayKey, mealKey, index, updatedFields) => {
+    const dayDiet = diets[dayKey];
+    if (!dayDiet) return;
+
+    const updatedMeals = { ...dayDiet.meals };
+    const currentItem = updatedMeals[mealKey][index];
+    if (!currentItem) return;
+
+    const newProtein = Number(updatedFields.proteinPerServing ?? updatedFields.protein ?? currentItem.proteinPerServing ?? currentItem.protein ?? 0);
+    const newCalories = Number(updatedFields.calories ?? currentItem.calories ?? Math.round(newProtein * 4));
+
+    updatedMeals[mealKey][index] = {
+      ...currentItem,
+      ...updatedFields,
+      proteinPerServing: newProtein,
+      protein: newProtein,
+      calories: newCalories
+    };
+
+    await updateDietMeals(dayKey, updatedMeals);
+  };
+
   // ==========================================
   // Food Reference CRUD (Global Stock & Sync)
   // ==========================================
@@ -1092,6 +1114,7 @@ export function PlannerProvider({ children }) {
     addFoodToMeal,
     removeFoodFromMeal,
     updateFoodQuantity,
+    updateLoggedFoodItem,
     addFoodRef,
     addBatchFoodRefs,
     editFoodRef,

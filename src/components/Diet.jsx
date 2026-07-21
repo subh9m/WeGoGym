@@ -9,7 +9,8 @@ import {
   Plus, 
   Search,
   X,
-  Minus
+  Minus,
+  Edit3
 } from "lucide-react";
 
 const DAYS_CONFIG = [
@@ -30,11 +31,17 @@ const MEALS_CONFIG = [
 ];
 
 export default function Diet() {
-  const { profile, diets, foodReferences, addFoodToMeal, removeFoodFromMeal, updateFoodQuantity } = usePlanner();
+  const { profile, diets, foodReferences, addFoodToMeal, removeFoodFromMeal, updateFoodQuantity, updateLoggedFoodItem } = usePlanner();
   const [selectedDay, setSelectedDay] = useState("day1");
 
   const [activeMealKey, setActiveMealKey] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Manual Edit Logged Food Item Modal States
+  const [editingLogItem, setEditingLogItem] = useState(null);
+  const [editProtein, setEditProtein] = useState(0);
+  const [editCalories, setEditCalories] = useState(0);
+  const [editQty, setEditQty] = useState(100);
 
   useEffect(() => {
     const today = new Date().getDay();
@@ -265,6 +272,19 @@ export default function Diet() {
                         </div>
 
                         <button 
+                          style={{ background: "none", border: "none", color: "var(--accent-protein)", cursor: "pointer", display: "flex", alignItems: "center", marginLeft: "2px" }}
+                          onClick={() => {
+                            setEditingLogItem({ mealKey: meal.key, index: idx, item });
+                            setEditProtein(storedP);
+                            setEditCalories(Number(item.calories ?? storedP * 4));
+                            setEditQty(selQ);
+                          }}
+                          title="Manually edit protein / calories"
+                        >
+                          <Edit3 size={12} />
+                        </button>
+
+                        <button 
                           style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center", marginLeft: "2px" }}
                           onClick={() => removeFoodFromMeal(selectedDay, meal.key, idx)}
                           title="Remove food"
@@ -363,6 +383,87 @@ export default function Diet() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Edit Logged Food Item Modal Dialog */}
+      {editingLogItem && (
+        <div className="modal-overlay" onClick={() => setEditingLogItem(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "440px" }}>
+            <div className="nothing-card-header" style={{ marginBottom: "16px" }}>
+              <span className="nothing-title" style={{ fontSize: "1.1rem" }}>
+                Edit Logged Food Protein
+              </span>
+              <button className="header-action-btn" onClick={() => setEditingLogItem(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!editingLogItem) return;
+                await updateLoggedFoodItem(selectedDay, editingLogItem.mealKey, editingLogItem.index, {
+                  proteinPerServing: Number(editProtein) || 0,
+                  protein: Number(editProtein) || 0,
+                  calories: Number(editCalories) || Math.round(Number(editProtein) * 4),
+                  quantity: Number(editQty) || 1
+                });
+                setEditingLogItem(null);
+              }} 
+              style={{ display: "flex", flexDirection: "column", gap: "14px" }}
+            >
+              <div style={{ fontSize: "0.95rem", fontWeight: "800", color: "var(--text-primary)" }}>
+                {editingLogItem.item.foodName || editingLogItem.item.name}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>PROTEIN PER REFERENCE SERVING (G)</label>
+                <div className="premium-input-box">
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    value={editProtein}
+                    onChange={(e) => setEditProtein(Number(e.target.value))}
+                    required
+                  />
+                  <span className="premium-input-unit">g</span>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>CALORIES (KCAL)</label>
+                <div className="premium-input-box">
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    value={editCalories}
+                    onChange={(e) => setEditCalories(Number(e.target.value))}
+                    required
+                  />
+                  <span className="premium-input-unit">kcal</span>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label className="nothing-label" style={{ fontSize: "0.65rem" }}>LOGGED PORTION QUANTITY ({editingLogItem.item.referenceUnit || editingLogItem.item.unit || "g"})</label>
+                <div className="premium-input-box">
+                  <input 
+                    type="number" 
+                    className="premium-inner-input" 
+                    value={editQty}
+                    onChange={(e) => setEditQty(Number(e.target.value))}
+                    required
+                  />
+                  <span className="premium-input-unit">{editingLogItem.item.referenceUnit || editingLogItem.item.unit || "g"}</span>
+                </div>
+              </div>
+
+              <button type="submit" className="btn-premium-primary" style={{ marginTop: "10px", height: "44px" }}>
+                Save Protein & Portion Changes
+              </button>
+            </form>
           </div>
         </div>
       )}

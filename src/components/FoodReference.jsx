@@ -730,6 +730,89 @@ export default function FoodReference() {
                 </div>
               )}
 
+              {/* Editable Nutrition Values Grid (Manually edit Protein, Calories, Fat, Carbs, Fiber) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
+                <label className="nothing-label" style={{ fontSize: "0.65rem", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Edit3 size={12} color="var(--accent-protein)" /> EDIT NUTRITION VALUES (PER PORTION)
+                </label>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span className="nothing-label" style={{ fontSize: "0.6rem" }}>PROTEIN (G)</span>
+                    <div className="premium-input-box">
+                      <input 
+                        type="number" 
+                        className="premium-inner-input" 
+                        placeholder="0"
+                        value={protein}
+                        onChange={(e) => setProtein(Number(e.target.value))}
+                        required
+                      />
+                      <span className="premium-input-unit">g</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span className="nothing-label" style={{ fontSize: "0.6rem" }}>CALORIES (KCAL)</span>
+                    <div className="premium-input-box">
+                      <input 
+                        type="number" 
+                        className="premium-inner-input" 
+                        placeholder="0"
+                        value={calories}
+                        onChange={(e) => setCalories(Number(e.target.value))}
+                        required
+                      />
+                      <span className="premium-input-unit">kcal</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span className="nothing-label" style={{ fontSize: "0.55rem" }}>FAT (G)</span>
+                    <div className="premium-input-box" style={{ height: "36px" }}>
+                      <input 
+                        type="number" 
+                        className="premium-inner-input" 
+                        placeholder="0"
+                        value={fat}
+                        onChange={(e) => setFat(Number(e.target.value))}
+                      />
+                      <span className="premium-input-unit">g</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span className="nothing-label" style={{ fontSize: "0.55rem" }}>CARBS (G)</span>
+                    <div className="premium-input-box" style={{ height: "36px" }}>
+                      <input 
+                        type="number" 
+                        className="premium-inner-input" 
+                        placeholder="0"
+                        value={carbs}
+                        onChange={(e) => setCarbs(Number(e.target.value))}
+                      />
+                      <span className="premium-input-unit">g</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span className="nothing-label" style={{ fontSize: "0.55rem" }}>FIBER (G)</span>
+                    <div className="premium-input-box" style={{ height: "36px" }}>
+                      <input 
+                        type="number" 
+                        className="premium-inner-input" 
+                        placeholder="0"
+                        value={fiber}
+                        onChange={(e) => setFiber(Number(e.target.value))}
+                      />
+                      <span className="premium-input-unit">g</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Error Alert */}
               {aiError && (
                 <div className="auth-error-msg" style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
