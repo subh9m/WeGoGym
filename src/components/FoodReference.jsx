@@ -157,10 +157,14 @@ export default function FoodReference() {
 
   // Real-time calculation when user changes reference quantity
   const handleRefQuantityChange = (newVal) => {
-    const newQty = Math.max(1, parseInt(newVal) || 1);
+    if (newVal === "" || newVal === null || newVal === undefined) {
+      setRefQuantity("");
+      return;
+    }
+    const newQty = Number(newVal);
     setRefQuantity(newQty);
 
-    if (baseNutrition && baseNutrition.quantity > 0) {
+    if (baseNutrition && baseNutrition.quantity > 0 && newQty > 0) {
       const scale = newQty / baseNutrition.quantity;
       setProtein(Math.round(baseNutrition.protein * scale));
       setFat(Math.round(baseNutrition.fat * scale));
@@ -745,7 +749,7 @@ export default function FoodReference() {
                         className="premium-inner-input" 
                         placeholder="0"
                         value={protein}
-                        onChange={(e) => setProtein(Number(e.target.value))}
+                        onChange={(e) => setProtein(e.target.value === "" ? "" : Number(e.target.value))}
                         required
                       />
                       <span className="premium-input-unit">g</span>
@@ -760,7 +764,7 @@ export default function FoodReference() {
                         className="premium-inner-input" 
                         placeholder="0"
                         value={calories}
-                        onChange={(e) => setCalories(Number(e.target.value))}
+                        onChange={(e) => setCalories(e.target.value === "" ? "" : Number(e.target.value))}
                         required
                       />
                       <span className="premium-input-unit">kcal</span>
@@ -777,7 +781,7 @@ export default function FoodReference() {
                         className="premium-inner-input" 
                         placeholder="0"
                         value={fat}
-                        onChange={(e) => setFat(Number(e.target.value))}
+                        onChange={(e) => setFat(e.target.value === "" ? "" : Number(e.target.value))}
                       />
                       <span className="premium-input-unit">g</span>
                     </div>
@@ -791,7 +795,7 @@ export default function FoodReference() {
                         className="premium-inner-input" 
                         placeholder="0"
                         value={carbs}
-                        onChange={(e) => setCarbs(Number(e.target.value))}
+                        onChange={(e) => setCarbs(e.target.value === "" ? "" : Number(e.target.value))}
                       />
                       <span className="premium-input-unit">g</span>
                     </div>
@@ -805,7 +809,7 @@ export default function FoodReference() {
                         className="premium-inner-input" 
                         placeholder="0"
                         value={fiber}
-                        onChange={(e) => setFiber(Number(e.target.value))}
+                        onChange={(e) => setFiber(e.target.value === "" ? "" : Number(e.target.value))}
                       />
                       <span className="premium-input-unit">g</span>
                     </div>

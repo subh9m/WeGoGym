@@ -425,7 +425,7 @@ export default function Diet() {
                     type="number" 
                     className="premium-inner-input" 
                     value={editProtein}
-                    onChange={(e) => setEditProtein(Number(e.target.value))}
+                    onChange={(e) => setEditProtein(e.target.value === "" ? "" : Number(e.target.value))}
                     required
                   />
                   <span className="premium-input-unit">g</span>
@@ -439,7 +439,7 @@ export default function Diet() {
                     type="number" 
                     className="premium-inner-input" 
                     value={editCalories}
-                    onChange={(e) => setEditCalories(Number(e.target.value))}
+                    onChange={(e) => setEditCalories(e.target.value === "" ? "" : Number(e.target.value))}
                     required
                   />
                   <span className="premium-input-unit">kcal</span>
@@ -453,7 +453,7 @@ export default function Diet() {
                     type="number" 
                     className="premium-inner-input" 
                     value={editQty}
-                    onChange={(e) => setEditQty(Number(e.target.value))}
+                    onChange={(e) => setEditQty(e.target.value === "" ? "" : Number(e.target.value))}
                     required
                   />
                   <span className="premium-input-unit">{editingLogItem.item.referenceUnit || editingLogItem.item.unit || "g"}</span>
