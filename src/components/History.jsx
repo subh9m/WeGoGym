@@ -47,9 +47,8 @@ export default function History() {
     return `${year}-${month}-${day}`;
   };
 
-  // Generate 52 Weeks (364 Days) Heatmap Grid Data up to today
-  const heatmapDays = useMemo(() => {
-    const days = [];
+  // Generate 52 Weeks Heatmap Grid Data grouped into 12 Month Blocks
+  const heatmapMonthBlocks = useMemo(() => {
     const today = new Date();
     
     // Create map of history logs keyed by YYYY-MM-DD
@@ -60,12 +59,26 @@ export default function History() {
       }
     });
 
+    const monthMap = new Map();
+
     // Generate last 364 days
     for (let i = 363; i >= 0; i--) {
       const d = new Date(today.getTime() - i * 86400000);
       const dateStr = getFormattedDate(d);
       
+      const yearMonthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const monthLabel = d.toLocaleDateString("en-US", { month: "short" });
+
+      if (!monthMap.has(yearMonthKey)) {
+        monthMap.set(yearMonthKey, {
+          yearMonthKey,
+          monthLabel,
+          days: []
+        });
+      }
+
       const dayOfWeek = d.getDay(); // 0 = Sun, 1 = Mon...
+      const rowIndex = (dayOfWeek + 6) % 7; // Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
       const dayKey = dayOfWeek === 0 ? "day7" : `day${dayOfWeek}`;
       
       const historyLog = historyMap[dateStr] || null;
@@ -99,10 +112,11 @@ export default function History() {
         level = "level-protein"; // Blue Glow (Protein Only)
       }
 
-      days.push({
+      monthMap.get(yearMonthKey).days.push({
         dateObj: d,
         dateStr,
         dayKey,
+        rowIndex,
         historyLog,
         mealsList,
         proteinVal,
@@ -113,7 +127,32 @@ export default function History() {
       });
     }
 
-    return days;
+    // Format days into week columns for each month block
+    const blocks = [];
+    monthMap.forEach((monthData) => {
+      const days = monthData.days;
+      const columns = [];
+      let currentColumn = new Array(7).fill(null);
+
+      days.forEach((dayItem) => {
+        if (dayItem.rowIndex === 0 && currentColumn.some(x => x !== null)) {
+          columns.push(currentColumn);
+          currentColumn = new Array(7).fill(null);
+        }
+        currentColumn[dayItem.rowIndex] = dayItem;
+      });
+
+      if (currentColumn.some(x => x !== null)) {
+        columns.push(currentColumn);
+      }
+
+      blocks.push({
+        monthLabel: monthData.monthLabel,
+        columns
+      });
+    });
+
+    return blocks;
   }, [history, diets, proteinTarget]);
 
   const getSessionVolume = (exercises) => {
@@ -223,86 +262,91 @@ export default function History() {
         </div>
       </div>
 
-      {/* GitHub / LeetCode Style Interactive Contribution Heatmap */}
-      <div className="nothing-card glow-white">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
-          <div>
-            <span className="nothing-title" style={{ fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "8px" }}>
-              <Activity size={18} color="var(--accent-push)" /> Fitness Contribution Heatmap
-            </span>
-            <span className="nothing-label" style={{ fontSize: "0.7rem", marginTop: "2px" }}>
-              Tap any day to inspect full workout & nutrition breakdown
-            </span>
+      {/* GitHub / LeetCode Style Interactive Contribution Heatmap Card */}
+      <div className="heatmap-container">
+        {/* Top Header Submissions & Meta Stats Row (Matching LeetCode Header) */}
+        <div className="heatmap-header-stats-row">
+          <div className="heatmap-sub-count">
+            <span className="heatmap-sub-count-num">{(history || []).length}</span>
+            <span>submissions in the past one year</span>
+            <Info size={14} color="var(--text-muted)" style={{ cursor: "pointer" }} title="Tracked workouts and daily protein targets over the past 365 days" />
           </div>
 
-          {/* Color Legend Badges */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontSize: "0.7rem", color: "var(--text-secondary)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "var(--bg-secondary)", border: "1px solid var(--border-color)" }} />
-              <span>None</span>
+          <div className="heatmap-stats-meta">
+            <div className="heatmap-stat-item">
+              <span>Total active days:</span>
+              <span className="heatmap-stat-val">{totalWorkoutDays}</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#22c55e" }} />
-              <span>Workout</span>
+            <div className="heatmap-stat-item">
+              <span>Max streak:</span>
+              <span className="heatmap-stat-val">{longestStreak}</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#3b82f6" }} />
-              <span>Protein</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#a855f7" }} />
-              <span>Both</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#f59e0b", boxShadow: "0 0 6px rgba(245,158,11,0.8)" }} />
-              <span>PR Day</span>
+
+            {/* Color Legend Badges */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.7rem", color: "var(--text-secondary)", marginLeft: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#18181b", border: "1px solid #27272a" }} />
+                <span>None</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#166534", border: "1px solid #22c55e" }} />
+                <span>Workout</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#1e40af", border: "1px solid #3b82f6" }} />
+                <span>Protein</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#6b21a8", border: "1px solid #a855f7" }} />
+                <span>Both</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#b45309", border: "1px solid #f59e0b", boxShadow: "0 0 6px rgba(245,158,11,0.8)" }} />
+                <span>PR</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Heatmap Grid Wrapper */}
-        <div style={{ overflowX: "auto", paddingBottom: "8px" }}>
-          <div className="contribution-grid-container" style={{ minWidth: "720px", display: "grid", gridTemplateColumns: "repeat(52, 1fr)", gap: "4px" }}>
-            {heatmapDays.map((dayItem, idx) => {
-              let bgStyle = "var(--bg-secondary)";
-              let borderStyle = "1px solid var(--border-color)";
-              let boxShadow = "none";
+        {/* Heatmap Main Container with Weekday Initials Column & Month Blocks */}
+        <div className="heatmap-main-container">
+          {/* Left Weekday Initials Column */}
+          <div className="heatmap-weekday-initials-col">
+            <span>M</span>
+            <span>T</span>
+            <span>W</span>
+            <span>T</span>
+            <span>F</span>
+            <span>S</span>
+            <span>S</span>
+          </div>
 
-              if (dayItem.level === "level-gold") {
-                bgStyle = "#f59e0b";
-                borderStyle = "1px solid #f59e0b";
-                boxShadow = "0 0 8px rgba(245, 158, 11, 0.7)";
-              } else if (dayItem.level === "level-both") {
-                bgStyle = "#a855f7";
-                borderStyle = "1px solid #a855f7";
-                boxShadow = "0 0 6px rgba(168, 85, 247, 0.4)";
-              } else if (dayItem.level === "level-workout") {
-                bgStyle = "#22c55e";
-                borderStyle = "1px solid #22c55e";
-              } else if (dayItem.level === "level-protein") {
-                bgStyle = "#3b82f6";
-                borderStyle = "1px solid #3b82f6";
-              }
-
-              return (
-                <div
-                  key={idx}
-                  title={`${dayItem.dateStr}: ${dayItem.hasWorkout ? dayItem.historyLog.dayName : "No Workout"}, ${dayItem.proteinVal}g Protein`}
-                  onClick={() => setSelectedDayDetails(dayItem)}
-                  style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "3px",
-                    background: bgStyle,
-                    border: borderStyle,
-                    boxShadow: boxShadow,
-                    cursor: "pointer",
-                    transition: "transform 0.15s ease"
-                  }}
-                  className="heatmap-cell-hover"
-                />
-              );
-            })}
+          {/* Right Scrollable Month Blocks Wrapper */}
+          <div className="heatmap-scroll-area">
+            {heatmapMonthBlocks.map((block, bIdx) => (
+              <div key={bIdx} className="heatmap-month-block">
+                <div className="heatmap-month-columns-grid">
+                  {block.columns.map((col, cIdx) => (
+                    <div key={cIdx} className="heatmap-week-column">
+                      {col.map((dayItem, rIdx) => {
+                        if (!dayItem) {
+                          return <div key={rIdx} className="heatmap-cell invisible" />;
+                        }
+                        return (
+                          <div
+                            key={rIdx}
+                            title={`${dayItem.dateStr}: ${dayItem.hasWorkout ? dayItem.historyLog.dayName : "No Workout"}, ${dayItem.proteinVal}g Protein`}
+                            onClick={() => setSelectedDayDetails(dayItem)}
+                            className={`heatmap-cell ${dayItem.level}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div className="heatmap-month-label">{block.monthLabel}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

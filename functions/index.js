@@ -152,13 +152,26 @@ exports.fetchNutritionBatch = functions.https.onCall(async (data, context) => {
     }
 
     const promptText = `
-You are a certified sports nutrition expert.
+You are a certified sports nutrition expert specializing in Indian and global fitness nutrition.
 
 Estimate standard accurate nutritional values for the following food item:
 
 Food Name: ${foodName}
 Reference Quantity: ${referenceQuantity}
 Reference Unit: ${referenceUnit}
+
+CRITICAL NUTRITIONAL REFERENCE GUIDELINES FOR INDIAN & GLOBAL FOODS:
+- 1 Roti / Chapati / Phulka (1 piece, ~35g cooked whole wheat): 3.2g Protein, 0.5g Fat, 15g Carbs, 2g Fiber, 75 Calories.
+- 1 Paratha (plain, 1 piece): 4g Protein, 7g Fat, 24g Carbs, 2g Fiber, 180 Calories.
+- 1 Naan (plain, 1 piece): 8g Protein, 5g Fat, 45g Carbs, 2g Fiber, 260 Calories.
+- 1 Bowl Cooked Dal / Sambhar (150g): 6.5g Protein, 3g Fat, 18g Carbs, 4g Fiber, 130 Calories.
+- 100g Paneer (Raw/Cottage Cheese): 18g Protein, 20g Fat, 3g Carbs, 0g Fiber, 265 Calories.
+- 1 Dosa (plain, 1 piece): 4g Protein, 4g Fat, 28g Carbs, 1.5g Fiber, 160 Calories.
+- 1 Idli (1 piece): 2g Protein, 0.2g Fat, 10g Carbs, 0.5g Fiber, 50 Calories.
+- 1 Bowl Cooked Rice (150g): 3.5g Protein, 0.4g Fat, 40g Carbs, 0.6g Fiber, 190 Calories.
+- 1 Whole Large Egg: 6g Protein, 5g Fat, 0.6g Carbs, 0g Fiber, 70 Calories.
+- 100g Chicken Breast (cooked): 31g Protein, 3.6g Fat, 0g Carbs, 0g Fiber, 165 Calories.
+- 1 Scoop Whey Protein (30g): 24g Protein, 1.5g Fat, 2g Carbs, 0g Fiber, 120 Calories.
 
 Respond with ONLY a JSON object containing:
 {
@@ -175,7 +188,9 @@ Respond with ONLY a JSON object containing:
 }
 
 Rules:
-- All nutritional numerical values must be scaled for the given reference quantity and unit.
+- All nutritional numerical values MUST be accurately scaled for the specified reference quantity and unit.
+- If the unit is "piece", "roti", or "chapati", calculate for the EXACT specified number of pieces (e.g. 1 Roti = 3.2g Protein, 75 kcal; 2 Rotis = 6.4g Protein, 150 kcal).
+- If unit is "g" or "ml", scale proportionally (e.g. 100g Paneer = 18g Protein, 265 kcal).
 - "protein", "fat", "carbs", "fiber", "calories" must be numbers (in grams, calories in kcal).
 - "foodType" MUST be one of: protein, grain, dairy, vegetable, fruit, meat, seafood, legumes, nuts, supplement, beverage, snack.
 - Return ONLY valid raw JSON. No markdown fences. No explanatory commentary.
