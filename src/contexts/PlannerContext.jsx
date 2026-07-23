@@ -159,12 +159,22 @@ export function PlannerProvider({ children }) {
     if (savedTimer) {
       try {
         const parsed = JSON.parse(savedTimer);
-        // Correct starting elapsedSeconds by adding actual time delta since it was written
-        if (parsed && !parsed.isPaused) {
-          const delta = Math.floor((Date.now() - parsed.lastUpdated) / 1000);
-          parsed.elapsedSeconds += Math.max(0, delta);
+        if (parsed) {
+          if (parsed.accumulatedSeconds === undefined) {
+            parsed.accumulatedSeconds = parsed.elapsedSeconds || 0;
+          }
+          if (parsed.lastResumeTime === undefined) {
+            parsed.lastResumeTime = parsed.startTime || Date.now();
+          }
+          if (!parsed.isPaused) {
+            const delta = Math.floor((Date.now() - parsed.lastResumeTime) / 1000);
+            parsed.elapsedSeconds = parsed.accumulatedSeconds + Math.max(0, delta);
+            parsed.lastUpdated = Date.now();
+          } else {
+            parsed.elapsedSeconds = parsed.accumulatedSeconds;
+          }
+          setActiveTimer(parsed);
         }
-        setActiveTimer(parsed);
       } catch (e) {
         console.error("Failed to parse saved activeTimer:", e);
       }
@@ -190,16 +200,42 @@ export function PlannerProvider({ children }) {
     }
   }, []);
 
+  // Sync / catch up activeTimer on page tab visibility or window focus (screen unlock)
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        setActiveTimer((prev) => {
+          if (!prev || prev.isPaused) return prev;
+          const currentElapsed = (prev.accumulatedSeconds || 0) + Math.floor((Date.now() - (prev.lastResumeTime || Date.now())) / 1000);
+          const updated = {
+            ...prev,
+            elapsedSeconds: currentElapsed,
+            lastUpdated: Date.now()
+          };
+          localStorage.setItem("wegogym_active_timer", JSON.stringify(updated));
+          return updated;
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+    };
+  }, []);
+
   // Interval hook for active session timer ticking
   useEffect(() => {
     let timerId = null;
     if (activeTimer && !activeTimer.isPaused) {
       timerId = setInterval(() => {
         setActiveTimer((prev) => {
-          if (!prev) return null;
+          if (!prev || prev.isPaused) return prev;
+          const currentElapsed = (prev.accumulatedSeconds || 0) + Math.floor((Date.now() - (prev.lastResumeTime || Date.now())) / 1000);
           const updated = {
             ...prev,
-            elapsedSeconds: prev.elapsedSeconds + 1,
+            elapsedSeconds: currentElapsed,
             lastUpdated: Date.now()
           };
           localStorage.setItem("wegogym_active_timer", JSON.stringify(updated));
@@ -482,6 +518,8 @@ export function PlannerProvider({ children }) {
       startTime: Date.now(),
       elapsedSeconds: 0,
       isPaused: false,
+      accumulatedSeconds: 0,
+      lastResumeTime: Date.now(),
       lastUpdated: Date.now()
     };
     setActiveTimer(timerObj);
@@ -491,7 +529,14 @@ export function PlannerProvider({ children }) {
   const pauseSession = () => {
     setActiveTimer((prev) => {
       if (!prev) return null;
-      const updated = { ...prev, isPaused: true, lastUpdated: Date.now() };
+      const currentElapsed = (prev.accumulatedSeconds || 0) + Math.floor((Date.now() - (prev.lastResumeTime || Date.now())) / 1000);
+      const updated = { 
+        ...prev, 
+        isPaused: true, 
+        accumulatedSeconds: currentElapsed, 
+        elapsedSeconds: currentElapsed, 
+        lastUpdated: Date.now() 
+      };
       localStorage.setItem("wegogym_active_timer", JSON.stringify(updated));
       return updated;
     });
@@ -500,7 +545,12 @@ export function PlannerProvider({ children }) {
   const resumeSession = () => {
     setActiveTimer((prev) => {
       if (!prev) return null;
-      const updated = { ...prev, isPaused: false, lastUpdated: Date.now() };
+      const updated = { 
+        ...prev, 
+        isPaused: false, 
+        lastResumeTime: Date.now(), 
+        lastUpdated: Date.now() 
+      };
       localStorage.setItem("wegogym_active_timer", JSON.stringify(updated));
       return updated;
     });
@@ -836,6 +886,43 @@ export function PlannerProvider({ children }) {
     // Note: Timer triggers are manual only (Feature 1 requirement)
   };
 
+  const toggleWorkoutExercise = async (dayKey, exerciseName, muscle) => {
+    if (!currentUser) return;
+    const uid = currentUser.uid;
+    const workoutDocRef = doc(db, "users", uid, "workouts", dayKey);
+    
+    const dayWorkout = workouts[dayKey];
+    if (!dayWorkout) return;
+
+    const existingIndex = dayWorkout.exercises.findIndex(
+      ex => ex.name.toLowerCase() === exerciseName.toLowerCase()
+    );
+
+    let newExercises = [...(dayWorkout.exercises || [])];
+    if (existingIndex > -1) {
+      newExercises.splice(existingIndex, 1);
+    } else {
+      const newEx = {
+        id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: exerciseName,
+        muscleGroup: muscle || "General",
+        muscle: muscle || "General",
+        weight: 40,
+        sets: 3,
+        reps: 10,
+        completed: false,
+        setsList: [
+          { setNum: 1, weight: 40, reps: 10, completed: false },
+          { setNum: 2, weight: 40, reps: 10, completed: false },
+          { setNum: 3, weight: 40, reps: 10, completed: false }
+        ]
+      };
+      newExercises.push(newEx);
+    }
+
+    await updateDoc(workoutDocRef, { exercises: newExercises });
+  };
+
   // ==========================================
   // Diet Operations
   // ==========================================
@@ -1153,6 +1240,7 @@ export function PlannerProvider({ children }) {
     prs,
     updateExercise,
     updateExerciseSet,
+    toggleWorkoutExercise,
     getSetsList,
     addFoodToMeal,
     addBatchFoodsToMeal,

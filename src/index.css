@@ -1747,3 +1747,66 @@ body.light select option {
     to { transform: translateY(0); }
   }
 }
+
+/* Dynamic Exercise Selector Chips Bar Styles */
+.exercise-chips-scroll-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+}
+
+.exercise-chips-scroll-bar::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+.exercise-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.exercise-chip:hover {
+  background: var(--bg-card);
+  border-color: var(--text-secondary);
+  transform: translateY(-1px);
+}
+
+.exercise-chip.active {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--bg-primary);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+}
+
+body.light .exercise-chip.active {
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+}
+
+.chip-muscle-tag {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  opacity: 0.7;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  margin-left: 2px;
+}
+
+.exercise-chip.active .chip-muscle-tag {
+  background: rgba(0, 0, 0, 0.12);
+  color: inherit;
+}

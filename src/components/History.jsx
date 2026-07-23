@@ -50,6 +50,7 @@ export default function History() {
   // Generate 52 Weeks Heatmap Grid Data grouped into 12 Month Blocks
   const heatmapMonthBlocks = useMemo(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
     // Create map of history logs keyed by YYYY-MM-DD
     const historyMap = {};
@@ -82,7 +83,7 @@ export default function History() {
       const dayKey = dayOfWeek === 0 ? "day7" : `day${dayOfWeek}`;
       
       const historyLog = historyMap[dateStr] || null;
-      const dayDiet = diets[dateStr] || diets[dayKey] || null;
+      const dayDiet = diets[dateStr] || null;
 
       // Calculate total protein consumed for that date
       let proteinVal = 0;

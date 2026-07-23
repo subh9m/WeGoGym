@@ -33,6 +33,88 @@ const DAYS_CONFIG = [
 const WEIGHT_OPTIONS = Array.from({ length: 121 }, (_, i) => i * 2.5);
 const formatWeightLabel = (w) => (w % 1 === 0 ? `${w} kg` : `${w.toFixed(1)} kg`);
 
+const MASTER_EXERCISES_BY_SPLIT = {
+  push: [
+    { name: "Bench Press", muscle: "Chest" },
+    { name: "Incline Dumbbell Press", muscle: "Chest" },
+    { name: "Shoulder Press", muscle: "Shoulders" },
+    { name: "Lateral Raise", muscle: "Shoulders" },
+    { name: "Cable Fly", muscle: "Chest" },
+    { name: "Tricep Pushdown", muscle: "Triceps" },
+    { name: "Overhead Extension", muscle: "Triceps" },
+    { name: "Decline Bench Press", muscle: "Chest" },
+    { name: "Push-Ups", muscle: "Chest" },
+    { name: "Pec Deck Fly", muscle: "Chest" },
+    { name: "Arnold Press", muscle: "Shoulders" },
+    { name: "Dips", muscle: "Triceps" },
+    { name: "Skull Crushers", muscle: "Triceps" },
+    { name: "Close-Grip Bench Press", muscle: "Triceps" },
+    { name: "Military Press", muscle: "Shoulders" }
+  ],
+  pull: [
+    { name: "Lat Pulldown", muscle: "Back" },
+    { name: "Barbell Row", muscle: "Back" },
+    { name: "Seated Cable Row", muscle: "Back" },
+    { name: "Face Pull", muscle: "Shoulders" },
+    { name: "Dumbbell Curl", muscle: "Biceps" },
+    { name: "Hammer Curl", muscle: "Biceps" },
+    { name: "Pull-Ups", muscle: "Back" },
+    { name: "Deadlift", muscle: "Back" },
+    { name: "T-Bar Row", muscle: "Back" },
+    { name: "Single-Arm Row", muscle: "Back" },
+    { name: "Preacher Curl", muscle: "Biceps" },
+    { name: "Reverse Fly", muscle: "Shoulders" },
+    { name: "Chin-Ups", muscle: "Back" },
+    { name: "Cable Curl", muscle: "Biceps" },
+    { name: "Incline Dumbbell Curl", muscle: "Biceps" }
+  ],
+  legs: [
+    { name: "Squat", muscle: "Quads" },
+    { name: "Romanian Deadlift", muscle: "Hamstrings" },
+    { name: "Leg Press", muscle: "Quads" },
+    { name: "Leg Curl", muscle: "Hamstrings" },
+    { name: "Leg Extension", muscle: "Quads" },
+    { name: "Standing Calf Raise", muscle: "Calves" },
+    { name: "Lunges", muscle: "Quads" },
+    { name: "Bulgarian Split Squat", muscle: "Glutes" },
+    { name: "Hip Thrust", muscle: "Glutes" },
+    { name: "Seated Calf Raise", muscle: "Calves" },
+    { name: "Leg Press Calf Press", muscle: "Calves" },
+    { name: "Hack Squat", muscle: "Quads" }
+  ],
+  abs: [
+    { name: "Hanging Knee Raise", muscle: "Abs" },
+    { name: "Hanging Leg Raise", muscle: "Abs" },
+    { name: "Cable Crunch", muscle: "Abs" },
+    { name: "Russian Twist", muscle: "Abs" },
+    { name: "Plank", muscle: "Abs" },
+    { name: "Ab Wheel Rollout", muscle: "Abs" },
+    { name: "Sit-ups", muscle: "Abs" },
+    { name: "Leg Raise (Flat)", muscle: "Abs" },
+    { name: "Bicycle Crunch", muscle: "Abs" }
+  ]
+};
+
+const getAvailableExercisesForRoutine = (routineType) => {
+  const type = (routineType || "").toLowerCase();
+  let list = [];
+  if (type.includes("push")) {
+    list = [...MASTER_EXERCISES_BY_SPLIT.push];
+  } else if (type.includes("pull")) {
+    list = [...MASTER_EXERCISES_BY_SPLIT.pull];
+  } else if (type.includes("leg")) {
+    list = [...MASTER_EXERCISES_BY_SPLIT.legs];
+  }
+  if (type.includes("abs") || type.includes("core")) {
+    list = [...list, ...MASTER_EXERCISES_BY_SPLIT.abs];
+  }
+  const seen = new Set();
+  return list.filter(item => {
+    const k = item.name.toLowerCase();
+    return seen.has(k) ? false : seen.add(k);
+  });
+};
+
 export default function Workout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -40,6 +122,7 @@ export default function Workout() {
     workouts, 
     updateExercise, 
     updateExerciseSet,
+    toggleWorkoutExercise,
     getSetsList,
     activeTimer, 
     startSession, 
@@ -383,6 +466,33 @@ export default function Workout() {
             <span className="nothing-title">Exercises ({totalExercises})</span>
             <span className="nothing-label">Per-Set Gym Tracker</span>
           </div>
+
+          {/* Dynamic Exercise Selector Chips Bar */}
+          {activeWorkout.type !== "Rest" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "14px 16px" }}>
+              <span className="nothing-label" style={{ fontSize: "0.68rem", display: "flex", alignItems: "center", gap: "4px" }}>
+                <Sparkles size={12} color="var(--accent-protein)" /> CHOOSE EXERCISES FOR TODAY ({activeWorkout.type} Split)
+              </span>
+              <div className="exercise-chips-scroll-bar">
+                {getAvailableExercisesForRoutine(activeWorkout.type).map((item) => {
+                  const isSelected = activeWorkout.exercises.some(
+                    ex => ex.name.toLowerCase() === item.name.toLowerCase()
+                  );
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => toggleWorkoutExercise(selectedDay, item.name, item.muscle)}
+                      className={`exercise-chip ${isSelected ? "active" : ""}`}
+                    >
+                      <Dumbbell size={11} />
+                      <span>{item.name}</span>
+                      <span className="chip-muscle-tag">{item.muscle}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {totalExercises > 0 ? (
             <div className="exercise-responsive-grid">
