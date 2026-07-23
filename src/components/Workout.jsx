@@ -675,6 +675,52 @@ export default function Workout() {
           </div>
         </div>
       )}
+      {/* Floating Rest Timer for Mobile Phones */}
+      {restActive && restSeconds > 0 && (
+        <div className="mobile-floating-rest-timer glow-timer">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <Clock size={16} className="spin-slow" color="var(--accent-timer)" />
+            <span style={{ fontSize: "0.85rem", fontWeight: "800", color: "var(--text-primary)" }}>
+              Rest: <span style={{ fontFamily: "var(--font-mono)", fontWeight: "900", color: "var(--accent-timer)" }}>{restSeconds}s</span> remaining
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {restActive ? (
+              <button 
+                onClick={pauseRest} 
+                className="floating-rest-btn"
+                title="Pause rest"
+              >
+                <Pause size={12} />
+              </button>
+            ) : (
+              <button 
+                onClick={() => startRest()} 
+                className="floating-rest-btn"
+                title="Resume rest"
+              >
+                <Play size={12} />
+              </button>
+            )}
+            <button 
+              onClick={resetRest} 
+              className="floating-rest-btn"
+              title="Reset rest"
+            >
+              <RotateCcw size={12} />
+            </button>
+            <button 
+              onClick={resetRest} 
+              className="floating-rest-btn"
+              style={{ color: "var(--text-muted)", marginLeft: "4px" }}
+              title="Close rest timer"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
